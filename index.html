@@ -15,6 +15,9 @@
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Firebase Config -->
+    <script src="firebase-config.js"></script>
 
     <!-- Estilos CSS -->
     <style>
@@ -1473,17 +1476,35 @@
         
         // --- 1. CONFIGURAÇÃO E INICIALIZAÇÃO ---
         
-        // ATENÇÃO: Substitua o objeto abaixo pela configuração do seu projeto Firebase.
-        // Você pode obter isso no console do Firebase:
-        // Configurações do projeto > Geral > Seus apps > App da Web > Configuração do Firebase > CDN.
+        // ATENÇÃO: As configurações do Firebase devem ser carregadas de um arquivo externo
+        // que não é enviado para o repositório público.
+        // Crie um arquivo chamado firebase-config.js na raiz do projeto com o seguinte conteúdo:
+        /*
+        // firebase-config.js
         const firebaseConfig = {
-            apiKey: "AIzaSyC_9d4m0crliSZvAd4py5exJixQFOtOvD8",
-            authDomain: "fincontrole-70ec4.firebaseapp.com",
-            projectId: "fincontrole-70ec4",
-            storageBucket: "fincontrole-70ec4.appspot.com",
-            messagingSenderId: "250535426531",
-            appId: "1:250535426531:web:6f509f1ee9914a550188d6"
+            apiKey: "SUA_API_KEY",
+            authDomain: "seu-projeto.firebaseapp.com",
+            projectId: "seu-projeto",
+            storageBucket: "seu-projeto.appspot.com",
+            messagingSenderId: "seu-messagingSenderId",
+            appId: "seu-appId"
         };
+        */
+        
+        // Verificar se as configurações do Firebase foram carregadas
+        if (typeof firebaseConfig === 'undefined') {
+            // Configuração de fallback para desenvolvimento local apenas
+            // NÃO inclua chaves reais aqui
+            const firebaseConfig = {
+                apiKey: "INSIRA_SUA_API_KEY_AQUI",
+                authDomain: "fincontrole-70ec4.firebaseapp.com",
+                projectId: "fincontrole-70ec4",
+                storageBucket: "fincontrole-70ec4.appspot.com",
+                messagingSenderId: "250535426531",
+                appId: "1:250535426531:web:6f509f1ee9914a550188d6"
+            };
+            console.error("Arquivo de configuração do Firebase não encontrado! Por favor, crie o arquivo firebase-config.js");
+        }
         
         // Inicializa o Firebase
         const app = initializeApp(firebaseConfig);
