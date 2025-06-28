@@ -785,7 +785,50 @@
             color: var(--subtle-text-color);
         }
     </style>
-</head>
+    
+    <!-- CSS adicional para corrigir problemas de display em cartões -->
+    <style>
+        /* Garantir que as tabelas de faturas e cartões não fiquem cortadas */
+        .data-table {
+            margin-bottom: 2rem;
+            width: 100%;
+            overflow-x: auto;
+            display: block;
+        }
+        
+        /* Correção específica para detalhes de cartão */
+        #cartoes-page {
+            overflow: visible !important;
+        }
+        
+        #cartao-detalhe {
+            overflow: visible !important;
+            height: auto !important;
+        }
+        
+        .cartao-fatura {
+            overflow: visible !important;
+            height: auto !important;
+            margin-bottom: 3rem !important;
+        }
+        
+        /* Aumentar o espaço no final da página para garantir que o conteúdo seja exibido corretamente */
+        #cartoes-page .card {
+            margin-bottom: 5rem;
+        }
+        
+        /* Melhoria na visualização da fatura do cartão */
+        .fatura-navigation {
+            flex-wrap: wrap;
+        }
+        
+        /* Final da página com espaço extra */
+        main {
+            padding-bottom: 5rem !important;
+        }
+    </style>
+    
+    <!-- Script para gerenciamento de menu em dispositivos móveis -->
 <body>
 
     <!-- Container de Autenticação -->
@@ -1093,10 +1136,10 @@
 
             <!-- Seção de Cartões -->
             <div id="cartoes-page" class="main-content">
-                <div class="card" style="padding: 0; overflow: hidden;">
-                    <div style="display: grid; grid-template-columns: 280px 1fr; height: 100%;">
+                <div class="card" style="padding: 0; overflow: visible;">
+                    <div style="display: grid; grid-template-columns: 280px 1fr; height: auto; min-height: 600px;">
                         <!-- Menu Lateral de Cartões -->
-                        <div style="border-right: 1px solid var(--border-color); padding: 1rem; height: 100%; max-height: 600px; overflow-y: auto;">
+                        <div style="border-right: 1px solid var(--border-color); padding: 1rem; height: auto; overflow-y: auto;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                 <h3>Meus Cartões</h3>
                                 <button id="add-cartao-btn" class="btn btn-primary" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.875rem;">
@@ -1110,69 +1153,69 @@
                         </div>
                         
                         <!-- Área de Detalhes do Cartão -->
-                        <div style="padding: 1.5rem;">
+                        <div style="padding: 1.5rem; overflow: visible; height: auto;">
                             <div id="cartao-detalhe-vazio" style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 400px; color: var(--subtle-text-color);">
                                 <i class="fas fa-credit-card" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
                                 <p>Selecione um cartão para ver os detalhes</p>
                             </div>
                             
-                            <div id="cartao-detalhe" style="display: none;">
-                                            <div class="cartao-header" style="margin-bottom: 2rem;">
-                <div class="cartao-visual" style="background: linear-gradient(135deg, var(--primary-color), #3b82f6); color: white; border-radius: var(--border-radius); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow);">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
+                            <div id="cartao-detalhe" style="display: none; overflow: visible; height: auto; max-height: none;">
+                            <div class="cartao-header" style="margin-bottom: 1.5rem;">
+                <div class="cartao-visual" style="background: linear-gradient(135deg, var(--primary-color), #3b82f6); color: white; border-radius: var(--border-radius); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); overflow: hidden;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+                        <div style="margin-bottom: 0.5rem;">
                             <h3 id="cartao-detalhe-nome" style="margin: 0; font-size: 1.5rem;"></h3>
                             <p id="cartao-detalhe-final" style="margin: 0.5rem 0 0 0; opacity: 0.8;"></p>
                         </div>
                         <div id="cartao-detalhe-bandeira" style="font-size: 1.75rem;"></div>
                     </div>
-                    <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
-                        <div>
+                    <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                        <div style="flex: 1; min-width: 130px;">
                             <small style="opacity: 0.8;">Limite Disponível</small>
-                            <h4 id="cartao-detalhe-limite-disponivel" style="margin: 0.25rem 0 0 0; font-size: 1.25rem;"></h4>
+                            <h4 id="cartao-detalhe-limite-disponivel" style="margin: 0.25rem 0 0 0; font-size: 1.25rem; word-break: break-word;"></h4>
                         </div>
-                        <div>
+                        <div style="flex: 1; min-width: 130px;">
                             <small style="opacity: 0.8;">Valor da Fatura</small>
-                            <h4 id="cartao-detalhe-valor-fatura" style="margin: 0.25rem 0 0 0; font-size: 1.25rem;"></h4>
+                            <h4 id="cartao-detalhe-valor-fatura" style="margin: 0.25rem 0 0 0; font-size: 1.25rem; word-break: break-word;"></h4>
                         </div>
                     </div>
-                    <div style="margin-top: 1.5rem; text-align: right;">
-                        <button id="btn-pagar-fatura" class="btn" style="background-color: white; color: var(--primary-color); padding: 0.5rem 1rem; font-weight: 500;">
+                    <div style="margin-top: 1.5rem; text-align: center;">
+                        <button id="btn-pagar-fatura" class="btn" style="background-color: white; color: var(--primary-color); padding: 0.5rem 1rem; font-weight: 500; width: auto; display: inline-block;">
                             <i class="fas fa-money-bill-wave"></i> Pagar Fatura
                         </button>
                     </div>
                 </div>
                                     
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); flex: 1; min-width: 120px;">
                                             <small style="color: var(--subtle-text-color);">Limite Total</small>
-                                            <h4 id="cartao-detalhe-limite" style="margin: 0.25rem 0 0 0;"></h4>
+                                            <h4 id="cartao-detalhe-limite" style="margin: 0.25rem 0 0 0; word-break: break-word;"></h4>
                                         </div>
-                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); flex: 1; min-width: 120px;">
                                             <small style="color: var(--subtle-text-color);">Vencimento</small>
-                                            <h4 id="cartao-detalhe-vencimento" style="margin: 0.25rem 0 0 0;"></h4>
+                                            <h4 id="cartao-detalhe-vencimento" style="margin: 0.25rem 0 0 0; word-break: break-word;"></h4>
                                         </div>
-                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); flex: 1; min-width: 120px;">
                                             <small style="color: var(--subtle-text-color);">Fechamento</small>
-                                            <h4 id="cartao-detalhe-fechamento" style="margin: 0.25rem 0 0 0;"></h4>
+                                            <h4 id="cartao-detalhe-fechamento" style="margin: 0.25rem 0 0 0; word-break: break-word;"></h4>
                                         </div>
-                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+                                        <div class="info-box" style="background-color: var(--surface-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); flex: 1; min-width: 120px;">
                                             <small style="color: var(--subtle-text-color);">Status</small>
-                                            <h4 id="cartao-detalhe-status" style="margin: 0.25rem 0 0 0;"></h4>
+                                            <h4 id="cartao-detalhe-status" style="margin: 0.25rem 0 0 0; word-break: break-word;"></h4>
                                         </div>
                                     </div>
                                     
-                                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
-                                        <button id="btn-editar-cartao" class="btn" style="width: auto; padding: 0.5rem 1rem;">
+                                    <div style="margin-top: 1.5rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem;">
+                                        <button id="btn-editar-cartao" class="btn" style="flex: 1; min-width: 120px; max-width: 200px; padding: 0.75rem 0.5rem;">
                                             <i class="fas fa-edit"></i> Editar Cartão
                                         </button>
-                                        <button id="btn-excluir-cartao" class="btn btn-danger" style="width: auto; padding: 0.5rem 1rem; background-color: var(--danger-color); color: white;">
+                                        <button id="btn-excluir-cartao" class="btn btn-danger" style="flex: 1; min-width: 120px; max-width: 200px; padding: 0.75rem 0.5rem; background-color: var(--danger-color); color: white;">
                                             <i class="fas fa-trash"></i> Excluir Cartão
                                         </button>
                                     </div>
                                 </div>
                                 
-                                <div class="cartao-fatura">
+                                <div class="cartao-fatura" style="overflow: visible; height: auto; max-height: none;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                         <h3 style="margin: 0;">Fatura <span id="cartao-detalhe-mes-fatura">atual</span></h3>
                                         <div class="fatura-navigation">
@@ -1209,13 +1252,15 @@
                                         </tbody>
                                     </table>
                                     
-                                    <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-                                        <button id="btn-add-lancamento" class="btn btn-primary" style="padding: 0.5rem 1rem;">
-                                            <i class="fas fa-plus"></i> Novo Lançamento
-                                        </button>
-                                        <div>
+                                    <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                                        <div style="text-align: center;">
+                                            <button id="btn-add-lancamento" class="btn btn-primary" style="padding: 0.75rem 1rem; width: 100%; max-width: 300px;">
+                                                <i class="fas fa-plus"></i> Novo Lançamento
+                                            </button>
+                                        </div>
+                                        <div style="text-align: center; padding: 0.5rem; background-color: var(--background-color); border-radius: var(--border-radius);">
                                             <strong>Total da fatura: </strong>
-                                            <span id="cartao-detalhe-total-fatura" style="font-size: 1.25rem; font-weight: 600; color: var(--primary-color);"></span>
+                                            <span id="cartao-detalhe-total-fatura" style="font-size: 1.25rem; font-weight: 600; color: var(--primary-color); word-break: break-word;"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -7611,6 +7656,9 @@
         }
 
         async function loadCartaoDetalhes(cartaoId) {
+            // Forçar a página a rolar para o topo para visualizar todo o conteúdo
+            window.scrollTo(0, 0);
+            
             try {
                 const docRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
                 const docSnap = await getDoc(docRef);
@@ -8042,24 +8090,40 @@
                     mesFatura.getFullYear() === mesAtual.getFullYear();
             }
             
-            document.getElementById('btn-fatura-anterior').onclick = () => {
+            // Remover listeners anteriores para evitar duplicação
+            const btnAnterior = document.getElementById('btn-fatura-anterior');
+            const btnAtual = document.getElementById('btn-fatura-atual');
+            const btnProxima = document.getElementById('btn-fatura-proxima');
+            
+            // Limpar eventos antigos usando cloneNode
+            const newBtnAnterior = btnAnterior.cloneNode(true);
+            const newBtnAtual = btnAtual.cloneNode(true);
+            const newBtnProxima = btnProxima.cloneNode(true);
+            
+            btnAnterior.parentNode.replaceChild(newBtnAnterior, btnAnterior);
+            btnAtual.parentNode.replaceChild(newBtnAtual, btnAtual);
+            btnProxima.parentNode.replaceChild(newBtnProxima, btnProxima);
+            
+            // Adicionar novos listeners
+            newBtnAnterior.onclick = () => {
                 mesFatura.setMonth(mesFatura.getMonth() - 1);
                 atualizarMesFatura();
             };
             
-            document.getElementById('btn-fatura-atual').onclick = () => {
+            newBtnAtual.onclick = () => {
                 mesFatura = new Date();
                 document.getElementById('cartao-detalhe-mes-fatura').textContent = 'atual';
                 loadFaturaAtual(cartaoId);
             };
             
-            document.getElementById('btn-fatura-proxima').onclick = () => {
+            newBtnProxima.onclick = () => {
                 mesFatura.setMonth(mesFatura.getMonth() + 1);
                 atualizarMesFatura();
             };
             
-            // Inicializa com o mês atual
-            document.getElementById('btn-fatura-atual').click();
+            // Configuramos apenas o texto sem recarregar a fatura
+            mesFatura = new Date();
+            document.getElementById('cartao-detalhe-mes-fatura').textContent = 'atual';
             
             // Botão para pagar fatura
             document.getElementById('btn-pagar-fatura').onclick = () => {
@@ -9720,6 +9784,14 @@
         }
         
         @media (max-width: 768px) {
+            /* Ajuste específico para a página de cartões em tablet */
+            #cartoes-page .card > div {
+                grid-template-columns: 1fr !important;
+                display: flex !important;
+                flex-direction: column !important;
+                height: auto !important;
+            }
+
             .mobile-menu-toggle {
                 display: block;
             }
@@ -9862,8 +9934,28 @@
             }
             
             /* Layout específico para cartões */
+            #cartoes-page .card {
+                overflow: visible !important;
+                height: auto !important;
+            }
+            
             #cartoes-page .card > div {
                 grid-template-columns: 1fr !important;
+                height: auto !important;
+                overflow: visible !important;
+                max-height: none !important;
+                display: block !important;
+            }
+            
+            #cartoes-page .card > div > div {
+                overflow: visible !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow-x: hidden !important;
+            }
+            
+            #cartao-detalhe {
+                overflow: visible !important;
                 height: auto !important;
             }
             
