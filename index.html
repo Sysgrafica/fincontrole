@@ -4978,179 +4978,6 @@
             const saldoFuturo = saldoAtual - gastosPendentes + recebimentosPendentes;
         }
         
-        // Função para carregar os gastos fixos/recorrentes no dashboard
-        async function carregarGastosFixosDashboard(mes = dashboardMesAtual) {
-            if (!currentUser) return 0;
-            
-            const dashboardGastosFixosLoading = document.getElementById('dashboard-gastos-fixos-loading');
-            const dashboardGastosFixosEmpty = document.getElementById('dashboard-gastos-fixos-empty');
-            const dashboardGastosFixosList = document.getElementById('dashboard-gastos-fixos-list');
-            
-            // Limpar conteúdos anteriores
-            dashboardGastosFixosList.innerHTML = '';
-            
-            // Mostrar loading
-            dashboardGastosFixosLoading.style.display = 'block';
-            dashboardGastosFixosEmpty.style.display = 'none';
-            dashboardGastosFixosList.style.display = 'none';
-            
-            // Buscar todos os gastos recorrentes/fixos
-            const gastosRef = collection(db, 'users', currentUser.uid, 'gastos');
-            const q = query(gastosRef, where('recorrente', '==', true));
-            const querySnapshot = await getDocs(q);
-            
-            const gastosFixos = [];
-            querySnapshot.forEach(doc => {
-                gastosFixos.push({ id: doc.id, ...doc.data() });
-            });
-            
-            // Se não há gastos fixos para mostrar
-            if (gastosFixos.length === 0) {
-                dashboardGastosFixosLoading.style.display = 'none';
-                dashboardGastosFixosEmpty.style.display = 'block';
-                return 0;
-            }
-            
-            // Agrupar gastos fixos por mês de vencimento
-            const gastosPorMes = {};
-            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            
-            gastosFixos.forEach(gasto => {
-                // Determinar o mês de vencimento
-                let mesVencimento;
-                
-                if (gasto.diaVencimento) {
-                    // Se tiver dia de vencimento explícito
-                    mesVencimento = meses[mes.getMonth()];
-                } else if (gasto.data) {
-                    // Se não tiver dia explícito, usar a data completa
-                    const dataGasto = new Date(gasto.data);
-                    mesVencimento = meses[dataGasto.getMonth()];
-                } else {
-                    // Se não tiver nenhuma data, considerar como "Sem data definida"
-                    mesVencimento = "Sem data definida";
-                }
-                
-                // Inicializar o array para este mês se ainda não existir
-                if (!gastosPorMes[mesVencimento]) {
-                    gastosPorMes[mesVencimento] = [];
-                }
-                
-                // Adicionar o gasto ao mês correspondente
-                gastosPorMes[mesVencimento].push(gasto);
-            });
-            
-            // Calcular total de gastos fixos
-            let totalGastosFixos = 0;
-            gastosFixos.forEach(gasto => {
-                totalGastosFixos += parseFloat(gasto.valor);
-            });
-            
-            // Criar um elemento de container para todas as tabelas
-            const gastosFixosContainer = document.createElement('div');
-            
-            // Para cada mês com gastos, criar uma tabela separada
-            Object.keys(gastosPorMes).forEach(mesNome => {
-                const gastosDoMes = gastosPorMes[mesNome];
-                
-                // Calcular o total de gastos deste mês
-                let totalDoMes = 0;
-                gastosDoMes.forEach(gasto => {
-                    totalDoMes += parseFloat(gasto.valor);
-                });
-                
-                // Criar cabeçalho para o mês
-                const mesHeader = document.createElement('h3');
-                mesHeader.style.marginTop = '1.5rem';
-                mesHeader.style.marginBottom = '0.5rem';
-                mesHeader.innerHTML = `${mesNome} <span style="font-size: 0.9rem; color: var(--danger-color);">(R$ ${totalDoMes.toFixed(2)})</span>`;
-                
-                gastosFixosContainer.appendChild(mesHeader);
-                
-                // Criar a tabela para os gastos deste mês
-                const tabelaGastosFixos = document.createElement('table');
-                tabelaGastosFixos.className = 'data-table';
-                tabelaGastosFixos.innerHTML = `
-                    <thead>
-                        <tr>
-                            <th>Descrição</th>
-                            <th>Valor</th>
-                            <th>Categoria</th>
-                            <th>Frequência</th>
-                            <th>Método</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                `;
-                
-                const tbody = tabelaGastosFixos.querySelector('tbody');
-                
-                // Ordenar gastos por valor (maiores primeiro)
-                gastosDoMes.sort((a, b) => parseFloat(b.valor) - parseFloat(a.valor));
-                
-                // Adicionar as linhas dos gastos fixos deste mês
-                gastosDoMes.forEach(gasto => {
-                    const row = document.createElement('tr');
-                    
-                    const frequenciaMap = {
-                        mensal: 'Mensal',
-                        quinzenal: 'Quinzenal',
-                        semanal: 'Semanal',
-                        bimestral: 'Bimestral',
-                        trimestral: 'Trimestral',
-                        semestral: 'Semestral',
-                        anual: 'Anual'
-                    };
-                    
-                    // Destacar o dia de vencimento, se existir
-                    let descricaoTexto = gasto.descricao;
-                    if (gasto.diaVencimento) {
-                        descricaoTexto += ` <span style="font-size: 0.85rem; color: var(--danger-color);">(Dia ${gasto.diaVencimento})</span>`;
-                    }
-                    
-                    row.innerHTML = `
-                        <td>${descricaoTexto}</td>
-                        <td>R$ ${parseFloat(gasto.valor).toFixed(2)}</td>
-                        <td>${gasto.categoria}</td>
-                        <td>${frequenciaMap[gasto.frequencia] || gasto.frequencia}</td>
-                        <td>${gasto.metodoPagamento || '-'}</td>
-                    `;
-                    
-                    tbody.appendChild(row);
-                });
-                
-                gastosFixosContainer.appendChild(tabelaGastosFixos);
-            });
-            
-            // Adicionar o resumo total ao final
-            const totalResumo = document.createElement('div');
-            totalResumo.style.marginTop = '1.5rem';
-            totalResumo.style.textAlign = 'right';
-            totalResumo.style.fontWeight = 'bold';
-            totalResumo.innerHTML = `Total de Gastos Fixos: <span style="color: var(--danger-color);">R$ ${totalGastosFixos.toFixed(2)}</span>`;
-            
-            gastosFixosContainer.appendChild(totalResumo);
-            
-            // Exibir as tabelas
-            dashboardGastosFixosLoading.style.display = 'none';
-            dashboardGastosFixosList.style.display = 'block';
-            dashboardGastosFixosList.appendChild(gastosFixosContainer);
-            
-            // Adicionar link para ver todos
-            const verTodosLink = document.createElement('div');
-            verTodosLink.style.textAlign = 'right';
-            verTodosLink.style.marginTop = '1rem';
-            verTodosLink.innerHTML = `
-                <a href="#gastos" class="btn" style="width: auto; padding: 0.5rem 1rem; display: inline-block;">
-                    <i class="fas fa-eye"></i> Ver Todos
-                </a>
-            `;
-            
-            dashboardGastosFixosList.appendChild(verTodosLink);
-            
-            return totalGastosFixos;
-        }
-        
         // Função para obter o primeiro e último dia do mês
         function getPrimeiroeUltimoDiaMes(mes) {
             const primeiroDiaMes = new Date(mes.getFullYear(), mes.getMonth(), 1);
@@ -9863,6 +9690,102 @@
         // Variável para controlar o mês atual das movimentações
         let movimentacoesMesAtual = new Date();
         
+        // --- Cartões ---
+        function loadCartoesData() {
+            if (!currentUser) return;
+            const tableBody = document.getElementById('cartoes-sidebar-list');
+            const cartoesRef = collection(db, 'users', currentUser.uid, 'cartoes');
+            const q = query(cartoesRef);
+
+            cartoesUnsubscribe = onSnapshot(q, (querySnapshot) => {
+                tableBody.innerHTML = '';
+                if (querySnapshot.empty) {
+                    tableBody.innerHTML = '<div class="cartao-sidebar-empty">Nenhum cartão cadastrado.</div>';
+                    document.getElementById('cartao-detalhe').style.display = 'none';
+                    document.getElementById('cartao-detalhe-vazio').style.display = 'flex';
+                    return;
+                }
+                querySnapshot.forEach((doc) => {
+                    const cartao = doc.data();
+                    const row = document.createElement('div');
+                    row.className = 'cartao-sidebar-item';
+                    row.dataset.id = doc.id;
+                    row.innerHTML = `
+                        <h4>${cartao.nome}</h4>
+                        <p>Final: ${cartao.final}</p>
+                    `;
+                    row.addEventListener('click', () => {
+                        document.querySelectorAll('.cartao-sidebar-item').forEach(item => item.classList.remove('active'));
+                        row.classList.add('active');
+                        loadCartaoDetalhes(doc.id);
+                    });
+                    tableBody.appendChild(row);
+                });
+
+                // Se houver um cartão selecionado no hash, carrega ele
+                const cartaoId = window.location.hash.split('#')[2];
+                if (cartaoId) {
+                    const cartaoItem = document.querySelector(`.cartao-sidebar-item[data-id="${cartaoId}"]`);
+                    if (cartaoItem) {
+                        cartaoItem.click();
+                    }
+                }
+            });
+        }
+
+        async function loadCartaoDetalhes(cartaoId) {
+            // Forçar a página a rolar para o topo para visualizar todo o conteúdo
+            window.scrollTo(0, 0);
+            
+            try {
+                const docRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const cartao = docSnap.data();
+                    
+                    // Mostra a área de detalhes e esconde a mensagem vazia
+                    document.getElementById('cartao-detalhe').style.display = 'block';
+                    document.getElementById('cartao-detalhe-vazio').style.display = 'none';
+                    
+                    // Atualiza os detalhes do cartão
+                    document.getElementById('cartao-detalhe-nome').textContent = cartao.nome;
+                    document.getElementById('cartao-detalhe-final').textContent = `Final ${cartao.final}`;
+                    document.getElementById('cartao-detalhe-limite').textContent = `R$ ${parseFloat(cartao.limite).toFixed(2)}`;
+                    
+                    // Formata as datas de vencimento e fechamento
+                    // Tratamento para garantir que vencimento e fechamento sejam números
+                    const diaVencimento = parseInt(cartao.vencimento);
+                    const diaFechamento = parseInt(cartao.fechamento);
+                    
+                    document.getElementById('cartao-detalhe-vencimento').textContent = `Dia ${diaVencimento}`;
+                    document.getElementById('cartao-detalhe-fechamento').textContent = `Dia ${diaFechamento}`;
+                    
+                    // Atualiza o status com ícone
+                    const statusEl = document.getElementById('cartao-detalhe-status');
+                    statusEl.innerHTML = `
+                        <i class="fas fa-${cartao.status === 'Ativo' ? 'check-circle' : 'times-circle'}"></i>
+                        ${cartao.status}
+                    `;
+                    statusEl.style.color = cartao.status === 'Ativo' ? 'var(--secondary-color)' : 'var(--danger-color)';
+                    
+                    // Atualiza a bandeira do cartão
+                    const bandeiraEl = document.getElementById('cartao-detalhe-bandeira');
+                    bandeiraEl.innerHTML = `<i class="fab fa-cc-visa"></i>`; // Você pode adicionar lógica para outras bandeiras
+                    
+                    // Carrega a fatura atual
+                    await loadFaturaAtual(cartaoId);
+                    
+                    // Configura os botões de ação
+                    setupCartaoActions(cartaoId, cartao);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar detalhes do cartão:', error);
+                showNotification('Erro ao carregar detalhes do cartão.', 'error');
+            }
+        }
+        
+        // --- Bancos ---
         function loadBancosData() {
             if (!currentUser) return;
             const tableBody = document.getElementById('bancos-table-body');
@@ -10633,6 +10556,58 @@
             }
         });
             
+        // Adiciona o botão para adicionar novo cartão
+        document.getElementById('add-cartao-btn').addEventListener('click', () => {
+            const formHtml = `
+                <form id="cartao-form">
+                    <div class="form-group">
+                        <label for="cartao-nome">Nome do Cartão</label>
+                        <input type="text" id="cartao-nome" name="nome" required>
+                        </div>
+                    <div class="form-group">
+                        <label for="cartao-final">Final</label>
+                        <input type="text" id="cartao-final" name="final" pattern="\\d*" maxlength="4" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cartao-limite">Limite</label>
+                        <input type="number" step="0.01" id="cartao-limite" name="limite" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cartao-vencimento">Dia do Vencimento</label>
+                        <input type="number" id="cartao-vencimento" name="vencimento" min="1" max="31" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cartao-fechamento">Dia do Fechamento</label>
+                        <input type="number" id="cartao-fechamento" name="fechamento" min="1" max="31" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cartao-status">Status</label>
+                        <select id="cartao-status" name="status" required>
+                            <option value="Ativo">Ativo</option>
+                            <option value="Inativo">Inativo</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Cadastrar</button>
+                </form>
+            `;
+            
+            openModal('Adicionar Novo Cartão', formHtml, async (data) => {
+                try {
+                    const cartaoData = {
+                        ...data,
+                        dataCriacao: serverTimestamp()
+                    };
+                    
+                    await addDoc(collection(db, 'users', currentUser.uid, 'cartoes'), cartaoData);
+                    showNotification('Cartão cadastrado com sucesso!', 'success');
+                    closeModal();
+                } catch (error) {
+                    console.error('Erro ao cadastrar cartão:', error);
+                    showNotification('Erro ao cadastrar cartão.', 'error');
+                }
+            });
+        });
+              
         // Adiciona o botão para adicionar novo banco
         document.getElementById('add-banco-btn').addEventListener('click', () => {
             const formHtml = `
@@ -10876,169 +10851,6 @@
         document.getElementById('btn-gerenciar-limites-gastos').addEventListener('click', function() {
             abrirGerenciadorLimitesGastos();
         });
-        
-        // Função para abrir o gerenciador de metas de rendas
-        async function abrirGerenciadorMetasRendas() {
-            try {
-                if (!currentUser) return;
-                
-                // Buscar categorias de rendas para o select
-                const categoriasRendasRef = collection(db, 'users', currentUser.uid, 'categoriasRendas');
-                const categoriasRendasSnap = await getDocs(categoriasRendasRef);
-                
-                // Categorias padrão + personalizadas
-                let opcoesCategoriasRendas = `
-                    <option value="">Selecione uma categoria</option>
-                    <option value="Salário">Salário</option>
-                    <option value="Freelance">Freelance</option>
-                    <option value="Investimentos">Investimentos</option>
-                    <option value="Outros">Outros</option>
-                `;
-                
-                // Adicionar categorias personalizadas
-                categoriasRendasSnap.forEach(doc => {
-                    const categoria = doc.data();
-                    opcoesCategoriasRendas += `<option value="${categoria.nome}">${categoria.nome}</option>`;
-                });
-                
-                // Buscar metas de rendas existentes
-                const metasRendasRef = collection(db, 'users', currentUser.uid, 'metasRendas');
-                const metasRendasSnap = await getDocs(metasRendasRef);
-                
-                // Criar lista de metas existentes
-                let listaMetasRendas = '';
-                if (metasRendasSnap.empty) {
-                    listaMetasRendas = '<p>Você ainda não configurou nenhuma meta de renda.</p>';
-                } else {
-                    listaMetasRendas = '<div class="metas-list">';
-                    metasRendasSnap.forEach(doc => {
-                        const meta = doc.data();
-                        listaMetasRendas += `
-                            <div class="meta-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color);">
-                                <div>
-                                    <strong>${meta.categoria}</strong><br>
-                                    Meta: R$ ${parseFloat(meta.valorMeta).toFixed(2)}
-                                </div>
-                                <div>
-                                    <button class="btn-excluir-meta-renda" data-id="${doc.id}" style="background: none; border: none; cursor: pointer; color: var(--danger-color);">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    listaMetasRendas += '</div>';
-                }
-                
-                // HTML para o modal
-                const formHtml = `
-                    <div class="metas-rendas-container">
-                        <div class="nova-meta-form" style="margin-bottom: 20px;">
-                            <h4>Adicionar Nova Meta de Renda</h4>
-                            <form id="form-nova-meta-renda">
-                                <div class="form-group">
-                                    <label for="categoria-meta-renda">Categoria</label>
-                                    <select id="categoria-meta-renda" name="categoria" class="form-control" required>
-                                        ${opcoesCategoriasRendas}
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="valor-meta-renda">Valor da Meta Mensal (R$)</label>
-                                    <input type="number" step="0.01" id="valor-meta-renda" name="valorMeta" class="form-control" required>
-                                </div>
-                                <div class="form-actions" style="margin-top: 15px;">
-                                    <button type="submit" class="btn btn-primary">Adicionar Meta</button>
-                                </div>
-                            </form>
-                        </div>
-                        
-                        <h4>Metas Existentes</h4>
-                        <div id="lista-metas-rendas">
-                            ${listaMetasRendas}
-                        </div>
-                    </div>
-                `;
-                
-                openModal('Gerenciar Metas de Rendas', formHtml);
-                
-                // Lidar com a adição de nova meta
-                document.getElementById('form-nova-meta-renda').addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    
-                    const form = e.target;
-                    const categoria = form.categoria.value;
-                    const valorMeta = parseFloat(form.valorMeta.value);
-                    
-                    if (!categoria || !valorMeta || isNaN(valorMeta)) {
-                        showNotification('Por favor, preencha todos os campos corretamente.', 'warning');
-                        return;
-                    }
-                    
-                    // Verificar se já existe uma meta para esta categoria
-                    const metaExistenteQuery = query(metasRendasRef, where("categoria", "==", categoria));
-                    const metaExistenteSnap = await getDocs(metaExistenteQuery);
-                    
-                    if (!metaExistenteSnap.empty) {
-                        showNotification('Já existe uma meta para esta categoria. Exclua a meta existente primeiro.', 'warning');
-                        return;
-                    }
-                    
-                    try {
-                        // Adicionar nova meta
-                        await addDoc(metasRendasRef, {
-                            categoria: categoria,
-                            valorMeta: valorMeta,
-                            dataCriacao: serverTimestamp(),
-                            dataAtualizacao: serverTimestamp()
-                        });
-                        
-                        showNotification('Meta de renda adicionada com sucesso!', 'success');
-                        
-                        // Recarregar o modal
-                        closeModal();
-                        abrirGerenciadorMetasRendas();
-                        
-                        // Atualizar o dashboard se estiver na página inicial
-                        if (window.location.hash === '#dashboard' || window.location.hash === '') {
-                            carregarMetasDashboard();
-                        }
-                    } catch (error) {
-                        console.error('Erro ao adicionar meta de renda:', error);
-                        showNotification('Erro ao adicionar meta de renda.', 'error');
-                    }
-                });
-                
-                // Adicionar listeners para excluir metas
-                document.querySelectorAll('.btn-excluir-meta-renda').forEach(btn => {
-                    btn.addEventListener('click', async () => {
-                        if (confirm('Tem certeza que deseja excluir esta meta?')) {
-                            const metaId = btn.dataset.id;
-                            
-                            try {
-                                await deleteDoc(firestoreDoc(db, 'users', currentUser.uid, 'metasRendas', metaId));
-                                showNotification('Meta excluída com sucesso!', 'success');
-                                
-                                // Recarregar modal
-                                closeModal();
-                                abrirGerenciadorMetasRendas();
-                                
-                                // Atualizar dashboard se estiver na página inicial
-                                if (window.location.hash === '#dashboard' || window.location.hash === '') {
-                                    carregarMetasDashboard();
-                                }
-                            } catch (error) {
-                                console.error('Erro ao excluir meta:', error);
-                                showNotification('Erro ao excluir meta.', 'error');
-                            }
-                        }
-                    });
-                });
-                
-            } catch (error) {
-                console.error('Erro ao carregar gerenciador de metas de rendas:', error);
-                showNotification('Erro ao carregar gerenciador de metas.', 'error');
-            }
-        }
         
         // Função para abrir o gerenciador de limites de gastos
         async function abrirGerenciadorLimitesGastos() {
