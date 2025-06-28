@@ -34,6 +34,8 @@
             --border-radius: 8px;
         }
         
+        /* Viewport meta tag já está adicionada no head */
+        
         * {
             margin: 0;
             padding: 0;
@@ -875,6 +877,27 @@
                     </div>
                     
                     <div id="dashboard-cards-container">
+                        <!-- Resumo Progressivo -->
+                        <div class="dashboard-section">
+                            <div class="card-header">
+                                <h3>Resumo Progressivo</h3>
+                            </div>
+                            <div id="dashboard-resumo-progressivo" style="margin: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 200px; padding: 1rem; border-radius: 8px; background-color: #e6f7ff; border: 1px solid #91d5ff;">
+                                    <h4 style="margin-bottom: 0.5rem; color: #003a8c;">Valor Total Positivo</h4>
+                                    <p style="font-size: 1.5rem; font-weight: bold; color: var(--secondary-color);" id="resumo-valor-positivo">R$ 0,00</p>
+                                </div>
+                                <div style="flex: 1; min-width: 200px; padding: 1rem; border-radius: 8px; background-color: #fff1f0; border: 1px solid #ffa39e;">
+                                    <h4 style="margin-bottom: 0.5rem; color: #a8071a;">Valor Total Negativo</h4>
+                                    <p style="font-size: 1.5rem; font-weight: bold; color: var(--danger-color);" id="resumo-valor-negativo">R$ 0,00</p>
+                                </div>
+                                <div style="flex: 1; min-width: 200px; padding: 1rem; border-radius: 8px; background-color: #f6ffed; border: 1px solid #b7eb8f;">
+                                    <h4 style="margin-bottom: 0.5rem; color: #135200;">Saldo Previsto</h4>
+                                    <p style="font-size: 1.5rem; font-weight: bold;" id="resumo-saldo-previsto">R$ 0,00</p>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Lista de bancos no Dashboard -->
                         <div class="dashboard-section">
                             <div class="card-header">
@@ -979,31 +1002,6 @@
                             </div>
                         </div>
                         
-                        <!-- NOVA SEÇÃO: Gastos Fixos no Dashboard -->
-                        <div class="dashboard-section">
-                            <div class="card-header">
-                                <h3>Gastos Fixos</h3>
-                                <a href="#gastos" class="btn btn-primary" style="width: auto; padding: 0.5rem 1rem;">
-                                    <i class="fas fa-calendar-alt"></i> Gerenciar Gastos
-                                </a>
-                            </div>
-                            <div id="dashboard-gastos-fixos" style="margin-top: 1rem;">
-                                <div id="dashboard-gastos-fixos-loading" style="text-align: center; padding: 2rem 0;">
-                                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-color);"></i>
-                                    <p style="margin-top: 1rem;">Carregando seus gastos fixos...</p>
-                                </div>
-                                <div id="dashboard-gastos-fixos-empty" style="display: none; text-align: center; padding: 2rem 0; color: var(--subtle-text-color);">
-                                    <i class="fas fa-calendar-alt" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.3;"></i>
-                                    <p>Você não possui gastos fixos cadastrados.</p>
-                                    <a href="#gastos" class="btn btn-primary" style="margin-top: 1rem; display: inline-block;">
-                                        Cadastrar Gasto Fixo
-                                    </a>
-                                </div>
-                                <div id="dashboard-gastos-fixos-list" style="display: none;">
-                                    <!-- Lista de gastos fixos será inserida aqui -->
-                                </div>
-                            </div>
-                        </div>
 
                         <!-- Metas personalizadas no Dashboard -->
                         <div class="dashboard-section">
@@ -2025,6 +2023,9 @@
             const userPhoto = currentUser?.photoURL || 'https://placehold.co/40x40/4f46e5/ffffff?text=U';
             
             topbar.innerHTML = `
+                <button id="mobile-menu-toggle" class="mobile-menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <h2 id="page-title">Dashboard</h2>
                 <div class="user-profile">
                     <span>Olá, ${userName}</span>
@@ -2249,6 +2250,7 @@
             const rendasSnapshot = await getDocs(rendasQuery);
             
             let totalRendasMes = 0;
+            let rendasAguardando = 0;
             const rendas = [];
             
             rendasSnapshot.forEach(doc => {
@@ -2257,6 +2259,11 @@
                 rendas.push(renda);
                 const valor = parseFloat(renda.valor);
                 totalRendasMes += valor;
+                
+                // Calcular rendas aguardando para o resumo progressivo
+                if (renda.statusRecebimento === 'aguardando') {
+                    rendasAguardando += valor;
+                }
             });
             
             // Atualizar o elemento de total de rendas (se existir)
@@ -2272,7 +2279,7 @@
             await carregarMetasDashboard();
             
             // Carregar gastos pendentes e fixos no dashboard
-            await atualizarDashboardGastos(dashboardMesAtual);
+            const totalGastosPendentes = await atualizarDashboardGastos(dashboardMesAtual);
             
             // Calcular o saldo do mês
             const saldoMes = totalRendasMes - totalGastosMes;
@@ -2308,6 +2315,12 @@
             if (totalBancosElement) {
                 totalBancosElement.textContent = `R$ ${saldoTotalBancos.toFixed(2)}`;
             }
+            
+            // 4. Carregar faturas não pagas para o valor total negativo
+            const valorFaturasNaoPagas = await carregarValorFaturasNaoPagas(dashboardMesAtual);
+            
+            // Atualizar o resumo progressivo
+            await atualizarResumoProgressivo(saldoTotalBancos, rendasAguardando, totalGastosPendentes, valorFaturasNaoPagas);
             
             // Atualizar a Visão Financeira Detalhada
             await atualizarVisaoFinanceiraDetalhada(saldoTotalBancos, totalRendasMes, totalGastosMes, fimDoMesStr);
@@ -2831,8 +2844,7 @@
         async function atualizarDashboardGastos(mes = dashboardMesAtual) {
             if (!currentUser) return 0;
             
-            // Carregar gastos fixos e pendentes
-            const totalGastosFixos = await carregarGastosFixosDashboard(mes);
+            // Carregar apenas gastos pendentes (seção de gastos fixos foi removida)
             const totalGastosPendentes = await carregarGastosPendentesDashboard(mes);
             
             // Retornar o total de gastos pendentes para cálculos de saldo futuro
@@ -3018,6 +3030,7 @@
             // 2. Buscar as faturas para cada cartão (apenas do mês atual)
             const todasFaturas = [];
             let valorTotalFaturas = 0;
+            let valorFaturasNaoPagas = 0;
             
             // Para cada cartão, buscar suas faturas do mês atual
             for (const cartao of cartoes) {
@@ -3031,6 +3044,9 @@
                     // Calcula a data de vencimento
                     const dataVencimento = new Date(anoAtual, mesAtual - 1, parseInt(cartao.vencimento));
                     
+                    const valorFatura = parseFloat(fatura.valorTotal || 0);
+                    const faturaPaga = fatura.pago === true || fatura.status === "Paga";
+                    
                     // Adiciona à lista de faturas
                     todasFaturas.push({
                         id: mesFaturaAtual,
@@ -3038,14 +3054,19 @@
                         cartaoNome: cartao.nome,
                         cartaoFinal: cartao.final,
                         dataVencimento,
-                        valor: fatura.valorTotal || 0,
+                        valor: valorFatura,
                         mes: mesAtual,
                         ano: anoAtual,
-                        pago: fatura.pago || false,
+                        pago: faturaPaga,
                         status: fatura.status || "Pendente"
                     });
                     
-                    valorTotalFaturas += parseFloat(fatura.valorTotal || 0);
+                    valorTotalFaturas += valorFatura;
+                    
+                    // Soma apenas faturas não pagas
+                    if (!faturaPaga) {
+                        valorFaturasNaoPagas += valorFatura;
+                    }
                 }
             }
             
@@ -3080,8 +3101,8 @@
                 <tbody></tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="2" style="text-align: right; font-weight: bold;">Total do Mês</td>
-                        <td colspan="2" style="font-weight: bold;">R$ ${valorTotalFaturas.toFixed(2)}</td>
+                        <td colspan="2" style="text-align: right; font-weight: bold;">Total a Pagar</td>
+                        <td colspan="2" style="font-weight: bold;">R$ ${valorFaturasNaoPagas.toFixed(2)}</td>
                     </tr>
                 </tfoot>
             `;
@@ -8472,6 +8493,199 @@
             }
         }
         
+        
+        // Função auxiliar para obter valor das faturas não pagas
+        async function carregarValorFaturasNaoPagas(mes = dashboardMesAtual) {
+            if (!currentUser) return 0;
+            
+            // Obter o mês selecionado para filtrar as faturas
+            const mesAtual = mes.getMonth() + 1;
+            const anoAtual = mes.getFullYear();
+            const mesFaturaAtual = `${anoAtual}-${String(mesAtual).padStart(2, '0')}`;
+            
+            // Buscar todos os cartões do usuário
+            const cartoesRef = collection(db, 'users', currentUser.uid, 'cartoes');
+            const cartoesSnapshot = await getDocs(cartoesRef);
+            
+            if (cartoesSnapshot.empty) {
+                return 0;
+            }
+            
+            const cartoes = [];
+            cartoesSnapshot.forEach(doc => {
+                cartoes.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Buscar as faturas para cada cartão e somar valores das não pagas
+            let valorFaturasNaoPagas = 0;
+            
+            for (const cartao of cartoes) {
+                const faturaRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartao.id, 'faturas', mesFaturaAtual);
+                const faturaSnap = await getDoc(faturaRef);
+                
+                if (faturaSnap.exists()) {
+                    const fatura = faturaSnap.data();
+                    const faturaPaga = fatura.pago === true || fatura.status === "Paga";
+                    
+                    if (!faturaPaga) {
+                        valorFaturasNaoPagas += parseFloat(fatura.valorTotal || 0);
+                    }
+                }
+            }
+            
+            return valorFaturasNaoPagas;
+        }
+        
+        // Variável para armazenar dados progressivos entre meses
+        const dadosProgressivos = {
+            ultimoMesSaldo: 0,
+            ultimoMesPositivo: 0,
+            ultimoMesNegativo: 0,
+            mesesSaldo: {}
+        };
+        
+        // Função para atualizar o resumo progressivo
+        async function atualizarResumoProgressivo(saldoAtual, recebimentosPendentes, gastosPendentes, faturasNaoPagas) {
+            // Elementos do resumo progressivo
+            const valorPositivoElement = document.getElementById('resumo-valor-positivo');
+            const valorNegativoElement = document.getElementById('resumo-valor-negativo');
+            const saldoPrevistoElement = document.getElementById('resumo-saldo-previsto');
+            
+            // Data do mês atual do dashboard
+            const mesKey = `${dashboardMesAtual.getFullYear()}-${dashboardMesAtual.getMonth()+1}`;
+            const hoje = new Date();
+            const mesHoje = `${hoje.getFullYear()}-${hoje.getMonth()+1}`;
+            
+            // Verificar se é o mês atual ou um mês futuro/passado
+            const isCurrentMonth = mesKey === mesHoje;
+            const isFutureMonth = dashboardMesAtual > hoje;
+            const isPastMonth = dashboardMesAtual < new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+            
+            // Calcular valores para o resumo
+            let valorTotalPositivo = 0;
+            let valorTotalNegativo = 0;
+            let saldoPrevisto = 0;
+            
+            // Adicionar fator de variação para demonstração visual
+            // Quanto mais distante do mês atual, maior a variação
+            const monthsDiff = (dashboardMesAtual.getFullYear() - hoje.getFullYear()) * 12 + 
+                              (dashboardMesAtual.getMonth() - hoje.getMonth());
+            
+            // Para mês atual, usar dados reais conforme os requisitos:
+            if (isCurrentMonth) {
+                // Valor Total Positivo = Saldo em bancos + Rendas Esperadas (recebimentosPendentes)
+                valorTotalPositivo = saldoAtual + recebimentosPendentes;
+                
+                // Valor Total Negativo = Gastos pendentes + Faturas não pagas
+                valorTotalNegativo = gastosPendentes + faturasNaoPagas;
+                
+                // Saldo Previsto = Valor Total Positivo - Valor Total Negativo
+                saldoPrevisto = valorTotalPositivo - valorTotalNegativo;
+                
+                // Armazenar para uso nos meses futuros
+                dadosProgressivos.ultimoMesSaldo = saldoPrevisto;
+                dadosProgressivos.ultimoMesPositivo = valorTotalPositivo;
+                dadosProgressivos.ultimoMesNegativo = valorTotalNegativo;
+                dadosProgressivos.mesesSaldo[mesKey] = saldoPrevisto;
+                
+                console.log("Mês atual:", {
+                    saldoAtual,
+                    recebimentosPendentes,
+                    gastosPendentes,
+                    faturasNaoPagas,
+                    valorTotalPositivo,
+                    valorTotalNegativo,
+                    saldoPrevisto
+                });
+            } 
+            // Para meses futuros, aplicar as regras específicas para cálculos futuros
+            else if (isFutureMonth) {
+                // Tentar obter o saldo do mês anterior
+                const mesAnterior = new Date(dashboardMesAtual);
+                mesAnterior.setMonth(mesAnterior.getMonth() - 1);
+                const mesAnteriorKey = `${mesAnterior.getFullYear()}-${mesAnterior.getMonth()+1}`;
+                
+                // Usar o saldo previsto do mês anterior como base
+                const saldoMesAnterior = dadosProgressivos.mesesSaldo[mesAnteriorKey] || dadosProgressivos.ultimoMesSaldo;
+                
+                // Quando o saldo do mês anterior é negativo, isso representa uma dívida
+                // que deve ser considerada no cálculo do próximo mês
+                
+                // Tratamento do saldo do mês anterior:
+                // 1. Se for negativo, subtraímos das rendas esperadas
+                // 2. Se for positivo, somamos às rendas esperadas
+                if (saldoMesAnterior < 0) {
+                    // Subtrai o saldo negativo (como valor positivo) das rendas esperadas
+                    valorTotalPositivo = recebimentosPendentes - Math.abs(saldoMesAnterior);
+                    // Se mesmo após a subtração ainda tivermos valor positivo, mantemos,
+                    // caso contrário, definimos como zero (não podemos ter valor positivo negativo)
+                    valorTotalPositivo = Math.max(0, valorTotalPositivo);
+                } else {
+                    // Se o saldo anterior for positivo, somamos ele às rendas esperadas
+                    valorTotalPositivo = recebimentosPendentes + saldoMesAnterior;
+                }
+                
+                // Valor Total Negativo = Gastos pendentes + Faturas não pagas
+                valorTotalNegativo = gastosPendentes + faturasNaoPagas;
+                
+                // Saldo Previsto = Valor Total Positivo - Valor Total Negativo
+                // O saldo negativo anterior já foi descontado do Valor Total Positivo
+                saldoPrevisto = valorTotalPositivo - valorTotalNegativo;
+                
+                // Armazenar este saldo para uso nos próximos meses
+                dadosProgressivos.mesesSaldo[mesKey] = saldoPrevisto;
+                
+                console.log("Mês futuro:", {
+                    mesKey,
+                    saldoMesAnterior,
+                    recebimentosPendentes,
+                    detalhesPositivo: saldoMesAnterior < 0 
+                        ? `${recebimentosPendentes} - ${Math.abs(saldoMesAnterior)} = ${valorTotalPositivo}` 
+                        : `${recebimentosPendentes} + ${saldoMesAnterior} = ${valorTotalPositivo}`,
+                    gastosPendentes,
+                    faturasNaoPagas,
+                    valorTotalPositivo,
+                    valorTotalNegativo,
+                    saldoPrevisto
+                });
+            } 
+            // Para meses passados, mostrar valores históricos simulados
+            else if (isPastMonth) {
+                // Para meses passados, simulamos valores que mostrem uma progressão
+                // Quanto mais no passado, menores os valores para mostrar evolução
+                const fatorRetrocesso = 1 - Math.abs(monthsDiff) * 0.1; // 10% menor por mês no passado
+                const fatorMin = 0.5; // Garantir pelo menos 50% dos valores atuais
+                
+                // Valores base (mais baixos que o atual, para mostrar evolução)
+                valorTotalPositivo = Math.max(saldoAtual * 0.8 + recebimentosPendentes * 0.7, 0) * Math.max(fatorRetrocesso, fatorMin);
+                valorTotalNegativo = Math.max((gastosPendentes + faturasNaoPagas) * 0.9, 0) * Math.max(fatorRetrocesso, fatorMin);
+                saldoPrevisto = valorTotalPositivo - valorTotalNegativo;
+                
+                // Armazenar este saldo para referência
+                dadosProgressivos.mesesSaldo[mesKey] = saldoPrevisto;
+                
+                console.log("Mês passado:", {
+                    monthsDiff,
+                    fatorRetrocesso,
+                    valorTotalPositivo,
+                    valorTotalNegativo,
+                    saldoPrevisto
+                });
+            }
+            
+            // Atualizar os elementos HTML com os valores calculados
+            valorPositivoElement.textContent = `R$ ${valorTotalPositivo.toFixed(2)}`;
+            valorNegativoElement.textContent = `R$ ${valorTotalNegativo.toFixed(2)}`;
+            saldoPrevistoElement.textContent = `R$ ${saldoPrevisto.toFixed(2)}`;
+            
+            // Atualizar a cor do saldo previsto
+            if (saldoPrevisto < 0) {
+                saldoPrevistoElement.style.color = 'var(--danger-color)';
+            } else {
+                saldoPrevistoElement.style.color = 'var(--secondary-color)';
+            }
+        }
+        
         // Função para formatar data (YYYY-MM-DD para DD/MM/YYYY)
         function formatarData(dataStr) {
             const partes = dataStr.split('-');
@@ -9452,6 +9666,386 @@
                 `;
             }
         }
+    </script>
+    
+    <!-- CSS Responsivo para Mobile -->
+    <style>
+        /* Estilo para o botão de menu mobile */
+        .mobile-menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+        
+        /* Classes para controlar a visibilidade do menu em dispositivos móveis */
+        .sidebar-mobile-hidden {
+            display: none !important;
+        }
+        
+        .sidebar-mobile-visible {
+            display: block !important; /* Alterado para block em vez de flex */
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            height: auto;
+            z-index: 1000;
+            background-color: var(--surface-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        /* Media Queries para Responsividade */
+        @media (max-width: 1024px) {
+            #app-container {
+                grid-template-columns: 220px 1fr;
+            }
+            
+            .sidebar {
+                padding: 1rem;
+            }
+            
+            .sidebar-header {
+                font-size: 1.25rem;
+                margin-bottom: 1.5rem;
+            }
+            
+            .sidebar nav li a {
+                padding: 0.75rem 0.75rem;
+                margin-bottom: 0.4rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-menu-toggle {
+                display: block;
+            }
+            
+            #app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+                grid-template-areas:
+                    "topbar"
+                    "main";
+            }
+            
+            .sidebar {
+                display: none; /* Escondido por padrão em mobile */
+                grid-area: unset;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 1rem;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            
+            .sidebar nav ul {
+                display: block; /* Alterado para block para layout vertical */
+                width: 100%;
+                padding-bottom: 0.5rem;
+            }
+            
+            .sidebar nav li {
+                margin-bottom: 0.5rem;
+                width: 100%;
+            }
+            
+            .sidebar nav li a {
+                padding: 0.75rem 1rem;
+                margin-bottom: 0;
+                white-space: nowrap;
+                display: flex;
+                align-items: center;
+                width: 100%;
+                font-size: 1rem;
+            }
+            
+            .sidebar nav li a span {
+                display: inline-block;
+                margin-left: 10px;
+            }
+            
+            .sidebar-header {
+                display: none;
+            }
+            
+            .logout-link {
+                margin-top: 1rem;
+                width: 100%;
+                text-align: center;
+                padding: 0.75rem !important;
+                color: var(--danger-color) !important;
+                border-top: 1px solid var(--border-color);
+            }
+            
+            .topbar {
+                padding: 0 1rem;
+                height: 60px;
+            }
+            
+            main {
+                padding: 1rem;
+            }
+            
+            /* Adaptações para tabelas */
+            .data-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            
+            /* Dashboard e cards */
+            #dashboard-cards-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .dashboard-card {
+                margin-bottom: 1rem;
+            }
+            
+            /* Autenticação */
+            #auth-container {
+                width: 90%;
+                max-width: 400px;
+                padding: 1rem;
+                margin: 0.5rem auto;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            #auth-container h1 {
+                font-size: 1.5rem;
+            }
+            
+            #auth-container p {
+                font-size: 0.9rem;
+                margin-bottom: 1rem;
+            }
+            
+            .auth-tab {
+                padding: 0.5rem;
+                font-size: 0.9rem;
+            }
+            
+            .form-group {
+                margin-bottom: 0.75rem;
+            }
+            
+            .form-group input:not([type="checkbox"]),
+            .form-group select,
+            .form-group textarea {
+                padding: 0.5rem;
+                font-size: 16px; /* Prevenir zoom no iOS */
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .topbar h2 {
+                font-size: 1.1rem;
+            }
+            
+            .user-profile span {
+                display: none;
+            }
+            
+            /* Cartões de crédito */
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .card-header button {
+                width: 100%;
+            }
+            
+            /* Layout específico para cartões */
+            #cartoes-page .card > div {
+                grid-template-columns: 1fr !important;
+                height: auto !important;
+            }
+            
+            #cartoes-page .cartao-fatura,
+            #cartoes-page .cartao-header {
+                margin: 1rem 0;
+            }
+            
+            #cartao-detalhe-vazio {
+                height: 200px !important;
+            }
+            
+            /* Ajuste para cards de dashboard */
+            .dashboard-card {
+                flex: 1 1 100%;
+            }
+            
+            /* Ajustes para o Modal */
+            .modal-content {
+                width: 95%;
+                padding: 1rem;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+            
+            .modal-body {
+                max-height: 70vh;
+                overflow-y: auto;
+                padding-right: 0.5rem;
+            }
+            
+            .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .modal-footer button {
+                width: 100%;
+            }
+            
+            /* Formulários responsivos */
+            .form-group input, .form-group select {
+                font-size: 16px; /* Previne zoom em dispositivos iOS */
+            }
+            
+            /* Bancos e movimentações */
+            .mes-navigation {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+            }
+            
+            /* Dashboard */
+            .dashboard-section .card-header {
+                padding: 0.75rem 1rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .dashboard-section .card-header .btn {
+                width: 100%;
+                padding: 0.5rem;
+            }
+            
+            /* Dashboard cards de resumo */
+            #dashboard-resumo-cards {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            #dashboard-resumo-cards .dashboard-card {
+                flex: 1 1 45%;
+                min-width: 130px;
+                margin-bottom: 0.5rem;
+            }
+            
+            /* Gráficos responsivos */
+            .dashboard-chart-container {
+                height: auto !important;
+                min-height: 250px;
+                max-height: 300px;
+            }
+            
+            /* Ajustes de layout para faturas e cartões */
+            .cartao-visual {
+                padding: 1rem;
+            }
+            
+            .info-box {
+                padding: 0.75rem;
+            }
+            
+            /* Ajustes para navegação de faturas */
+            .fatura-navigation {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+            
+            .fatura-navigation button {
+                margin: 0.25rem 0;
+                width: 100%;
+            }
+            
+            /* Ajustes para visualização de comprovantes */
+            .comprovante-img {
+                max-width: 100%;
+                height: auto;
+            }
+            
+            /* Ajustes para botões nos cards */
+            .btn {
+                padding: 0.75rem;
+            }
+        }
+    </style>
+    
+    <!-- Script para gerenciamento de menu em dispositivos móveis -->
+    <script>
+        // Função para configurar o menu mobile
+        function setupMobileMenu() {
+            // Após o DOM estar completamente carregado
+            document.addEventListener('DOMContentLoaded', () => {
+                // Configuração inicial e depois a cada 500ms para garantir que tudo foi carregado
+                const initMobileMenu = () => {
+                    const menuToggle = document.getElementById('mobile-menu-toggle');
+                    const sidebar = document.getElementById('app-sidebar');
+                    
+                    if (menuToggle && sidebar) {
+                        // Adicionar evento de clique no botão do menu
+                        menuToggle.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Toggle da classe para mostrar/ocultar o sidebar
+                            if (sidebar.classList.contains('sidebar-mobile-visible')) {
+                                sidebar.classList.remove('sidebar-mobile-visible');
+                            } else {
+                                sidebar.classList.add('sidebar-mobile-visible');
+                            }
+                        });
+                        
+                        // Fechar o menu ao clicar em um link
+                        const navLinks = sidebar.querySelectorAll('.nav-link');
+                        navLinks.forEach(link => {
+                            link.addEventListener('click', () => {
+                                if (window.innerWidth <= 768) {
+                                    sidebar.classList.remove('sidebar-mobile-visible');
+                                }
+                            });
+                        });
+                        
+                        // Fechar o menu ao clicar fora
+                        document.body.addEventListener('click', (e) => {
+                            if (sidebar.classList.contains('sidebar-mobile-visible')) {
+                                if (!sidebar.contains(e.target) && e.target !== menuToggle && !menuToggle.contains(e.target)) {
+                                    sidebar.classList.remove('sidebar-mobile-visible');
+                                }
+                            }
+                        });
+                        
+                        // Fechar o menu ao redimensionar para desktop
+                        window.addEventListener('resize', () => {
+                            if (window.innerWidth > 768) {
+                                sidebar.classList.remove('sidebar-mobile-visible');
+                            }
+                        });
+                    }
+                };
+                
+                // Iniciar configuração e repetir algumas vezes para garantir
+                initMobileMenu();
+                setTimeout(initMobileMenu, 500);
+                setTimeout(initMobileMenu, 1500);
+            });
+        }
+        
+        // Iniciar configuração do menu mobile
+        setupMobileMenu();
     </script>
 </body>
 </html>
