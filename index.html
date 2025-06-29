@@ -3592,6 +3592,31 @@
         // --- 3. FUNÇÕES UTILITÁRIAS ---
         
         /**
+         * Inicializa todos os tooltips na página
+         */
+        function initializeTooltips() {
+            document.querySelectorAll('.tooltip').forEach(tooltip => {
+                if (tooltip) {
+                    tooltip.addEventListener('mouseenter', function() {
+                        const tooltipText = safeQuerySelector(this, '.tooltiptext');
+                        if (tooltipText) {
+                            tooltipText.style.visibility = 'visible';
+                            tooltipText.style.opacity = '1';
+                        }
+                    });
+                    
+                    tooltip.addEventListener('mouseleave', function() {
+                        const tooltipText = safeQuerySelector(this, '.tooltiptext');
+                        if (tooltipText) {
+                            tooltipText.style.visibility = 'hidden';
+                            tooltipText.style.opacity = '0';
+                        }
+                    });
+                }
+            });
+        }
+        
+        /**
          * Converte um arquivo para base64
          * @param {File} file - O arquivo a ser convertido
          * @returns {Promise<string>} - Promise que resolve para a string base64
@@ -3694,6 +3719,22 @@
         }
         
         /**
+         * Utilitário para querySelector seguro que evita erros quando o elemento não existe
+         * @param {Element|null} element - O elemento onde buscar
+         * @param {string} selector - O seletor CSS
+         * @returns {Element|null} - O elemento encontrado ou null
+         */
+        function safeQuerySelector(element, selector) {
+            try {
+                if (!element) return null;
+                return element.querySelector(selector);
+            } catch (e) {
+                console.error(`Erro ao buscar elemento ${selector}:`, e);
+                return null;
+            }
+        }
+        
+        /**
          * Exibe uma notificação na tela.
          * @param {string} message - A mensagem a ser exibida.
          * @param {string} type - O tipo de notificação ('success', 'error', 'info').
@@ -3726,6 +3767,11 @@
             modalTitle.textContent = title;
             modalBody.innerHTML = formHtml;
             modal.classList.add('is-open');
+            
+            // Inicializar tooltips no modal
+            setTimeout(() => {
+                initializeTooltips();
+            }, 100);
 
             // Compatibilidade com versão anterior
             let setupCallback, submitCallback;
@@ -4177,6 +4223,11 @@
             if (cartoesUnsubscribe) { cartoesUnsubscribe(); cartoesUnsubscribe = null; }
             if (bancosUnsubscribe) { bancosUnsubscribe(); bancosUnsubscribe = null; }
             if (rendasUnsubscribe) { rendasUnsubscribe(); rendasUnsubscribe = null; }
+            
+            // Inicializar tooltips após um breve delay para garantir que o DOM foi atualizado
+            setTimeout(() => {
+                initializeTooltips();
+            }, 300);
             
             switch (pageName) {
                 case 'dashboard':
@@ -6162,13 +6213,16 @@
                 // Atualiza apenas quando o usuário clicar em "Aplicar Filtros"
             });
             
-            document.querySelector('#filtro-pesquisa').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    carregarGastosComFiltro();
-                    setTimeout(atualizarCardsMobile, 300);
-                    e.preventDefault();
-                }
-            });
+            const filtroPesquisa = document.getElementById('filtro-pesquisa');
+            if (filtroPesquisa) {
+                filtroPesquisa.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        carregarGastosComFiltro();
+                        setTimeout(atualizarCardsMobile, 300);
+                        e.preventDefault();
+                    }
+                });
+            }
             
             btnAplicarFiltro.addEventListener('click', () => {
                 carregarGastosComFiltro();
@@ -6455,73 +6509,211 @@
                 </form>
             `;
 
-            // Adiciona os listeners para controlar a visibilidade dos campos condicionais
+            // Abre o modal com o formulário
+            openModal('Novo Gasto', formHtml, async (data) => {
+                // Implementação da função de callback que será executada quando o formulário for submetido
+                try {
+                    // Verificar se foi informada uma nova categoria
+                    if (data.categoria === 'nova_categoria') {
+                        const novaCategoriaInput = document.getElementById('nova-categoria-input');
+                        if (novaCategoriaInput && novaCategoriaInput.value) {
+                            // Salva a nova categoria e usa ela no gasto
+                            await salvarNovaCategoria(novaCategoriaInput.value);
+                            data.categoria = novaCategoriaInput.value;
+                        } else {
+                            showNotification('Por favor, informe o nome da nova categoria.', 'error');
+                            return;
+                        }
+                    }
+
+                    // Processar o comprovante, se houver
+                    const fileInput = document.getElementById('gasto-comprovante');
+                    let comprovante = null;
+                    
+                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        const file = fileInput.files[0];
+                        // Limitar o tamanho do arquivo para 5MB
+                        if (file.size > 5 * 1024 * 1024) {
+                            throw new Error('O comprovante deve ter no máximo 5MB.');
+                        }
+                        
+                        // Converter para Base64
+                        comprovante = await fileToBase64(file);
+                    }
+                    
+                    // Prepara o documento para salvar
+                    const gastoDoc = {
+                        descricao: data.descricao,
+                        valor: parseFloat(data.valor),
+                        data: data.data,
+                        categoria: data.categoria,
+                        metodoPagamento: data.metodoPagamento,
+                        observacao: data.observacao || '',
+                        status: data.metodoPagamento === 'Pendente' ? 'Pendente' : 'Pago',
+                        dataCriacao: serverTimestamp(),
+                        comprovante: comprovante
+                    };
+
+                    // Adiciona campos específicos para cada método de pagamento
+                    if (data.metodoPagamento === 'Cartão de Crédito') {
+                        gastoDoc.cartaoId = data.cartaoId;
+                        gastoDoc.parcelas = parseInt(data.parcelas);
+                    } else if (['Cartão de Débito', 'Pix', 'Transferência'].includes(data.metodoPagamento)) {
+                        gastoDoc.bancoId = data.bancoId;
+                    }
+
+                    // Verifica se é um gasto recorrente
+                    if (data.recorrente === 'on') {
+                        gastoDoc.recorrente = true;
+                        gastoDoc.frequencia = data.frequencia;
+                        gastoDoc.diaVencimento = data.diaVencimento !== '' ? parseInt(data.diaVencimento) : null;
+                        gastoDoc.dataFim = data.dataFim || null;
+                    } else {
+                        gastoDoc.recorrente = false;
+                    }
+
+                    // Salva o gasto no Firestore
+                    const gastosRef = collection(db, 'users', currentUser.uid, 'gastos');
+                    const docRef = await addDoc(gastosRef, gastoDoc);
+                    
+                    // Se for um gasto com cartão de crédito
+                    if (data.metodoPagamento === 'Cartão de Crédito') {
+                        if (parseInt(data.parcelas) > 1) {
+                            // Cria parcelas para compras parceladas
+                            await criarParcelas(docRef.id, gastoDoc);
+                        } else {
+                            // Para compras à vista, atualizar diretamente a fatura atual
+                            const dataCompra = new Date(data.data + 'T00:00:00');
+                            
+                            // Carregar informações do cartão para vencimento
+                            const cartaoRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', data.cartaoId);
+                            const cartaoSnap = await getDoc(cartaoRef);
+                            let diaFechamento = 1;
+                            let diaVencimento = 10;
+                            
+                            if (cartaoSnap.exists()) {
+                                const cartaoData = cartaoSnap.data();
+                                diaFechamento = cartaoData.diaFechamento || diaFechamento;
+                                diaVencimento = cartaoData.diaVencimento || diaVencimento;
+                            }
+                            
+                            // Calcular o vencimento baseado na data de compra e fechamento
+                            let dataVencimento = new Date(dataCompra);
+                            
+                            // Se a compra foi após o fechamento, vai para a fatura do próximo mês
+                            if (dataCompra.getDate() > diaFechamento) {
+                                dataVencimento.setMonth(dataVencimento.getMonth() + 1);
+                            }
+                            
+                            // Ajustar para o dia de vencimento do cartão
+                            dataVencimento.setDate(diaVencimento);
+                            
+                            // Atualiza a fatura
+                            await atualizarFaturaCartao(data.cartaoId, dataVencimento, docRef.id, parseFloat(data.valor));
+                        }
+                    }
+                    
+                    showNotification('Gasto registrado com sucesso!', 'success');
+                    closeModal();
+                    
+                    // Recarrega a tabela de gastos, se estiver na página correspondente
+                    if (window.location.hash === '#gastos') {
+                        // Força a recarga da página atual para atualizar a tabela de gastos
+                        document.dispatchEvent(new CustomEvent('hashchange'));
+                    }
+                    
+                } catch (error) {
+                    console.error('Erro ao salvar gasto:', error);
+                    showNotification('Erro ao salvar gasto: ' + error.message, 'error');
+                }
+            });
+            
+            // Adiciona os listeners para controlar a visibilidade dos campos condicionais após o modal ser aberto
             const form = document.getElementById('gasto-form');
-            const metodoPagamento = form.querySelector('#gasto-metodo');
-            const cartaoCreditoFields = form.querySelector('#cartao-credito-fields');
-            const bancoFields = form.querySelector('#banco-fields');
-            const gastoRecorrente = form.querySelector('#gasto-recorrente');
-            const recorrenteFields = form.querySelector('#recorrente-fields');
-            const categoriasSelect = form.querySelector('#gasto-categoria');
-            const novaCategoriaField = form.querySelector('#nova-categoria-field');
-            const novaCategoriaInput = form.querySelector('#nova-categoria-input');
-            const btnGerenciarCategorias = form.querySelector('#btn-gerenciar-categorias');
+            if (!form) {
+                console.error('Formulário de gasto não encontrado');
+                return;
+            }
+            
+            const metodoPagamento = safeQuerySelector(form, '#gasto-metodo');
+            const cartaoCreditoFields = safeQuerySelector(form, '#cartao-credito-fields');
+            const bancoFields = safeQuerySelector(form, '#banco-fields');
+            const gastoRecorrente = safeQuerySelector(form, '#gasto-recorrente');
+            const recorrenteFields = safeQuerySelector(form, '#recorrente-fields');
+            const categoriasSelect = safeQuerySelector(form, '#gasto-categoria');
+            const novaCategoriaField = safeQuerySelector(form, '#nova-categoria-field');
+            const novaCategoriaInput = safeQuerySelector(form, '#nova-categoria-input');
+            const btnGerenciarCategorias = safeQuerySelector(form, '#btn-gerenciar-categorias');
             
             // Carregar categorias personalizadas do usuário
-            carregarCategoriasPerssonalizadas(categoriasSelect);
-            
-            // Controla o campo de nova categoria
-            categoriasSelect.addEventListener('change', (e) => {
-                if (e.target.value === 'nova_categoria') {
-                    novaCategoriaField.style.display = 'block';
-                    novaCategoriaInput.focus();
-                    novaCategoriaInput.required = true;
-                } else {
-                    novaCategoriaField.style.display = 'none';
-                    novaCategoriaInput.required = false;
-                }
-            });
+            if (categoriasSelect) {
+                carregarCategoriasPerssonalizadas(categoriasSelect);
+                
+                // Controla o campo de nova categoria
+                categoriasSelect.addEventListener('change', (e) => {
+                    if (e.target.value === 'nova_categoria') {
+                        if (novaCategoriaField) novaCategoriaField.style.display = 'block';
+                        if (novaCategoriaInput) {
+                            novaCategoriaInput.focus();
+                            novaCategoriaInput.required = true;
+                        }
+                    } else {
+                        if (novaCategoriaField) novaCategoriaField.style.display = 'none';
+                        if (novaCategoriaInput) novaCategoriaInput.required = false;
+                    }
+                });
+            }
             
             // Botão para gerenciar categorias
-            btnGerenciarCategorias.addEventListener('click', () => {
-                abrirGerenciadorCategorias();
-            });
+            if (btnGerenciarCategorias) {
+                btnGerenciarCategorias.addEventListener('click', () => {
+                    abrirGerenciadorCategorias();
+                });
+            }
 
             // Controla campos do método de pagamento
-            metodoPagamento.addEventListener('change', async (e) => {
-                cartaoCreditoFields.style.display = 'none';
-                bancoFields.style.display = 'none';
+            if (metodoPagamento) {
+                metodoPagamento.addEventListener('change', async (e) => {
+                    if (cartaoCreditoFields) cartaoCreditoFields.style.display = 'none';
+                    if (bancoFields) bancoFields.style.display = 'none';
 
-                if (e.target.value === 'Cartão de Crédito') {
-                    cartaoCreditoFields.style.display = 'block';
-                    // Carrega os cartões do usuário
-                    const cartoesRef = collection(db, 'users', currentUser.uid, 'cartoes');
-                    const cartoesSnap = await getDocs(cartoesRef);
-                    const cartaoSelect = form.querySelector('#gasto-cartao');
-                    cartaoSelect.innerHTML = '<option value="">Selecione um cartão</option>';
-                    cartoesSnap.forEach(doc => {
-                        const cartao = doc.data();
-                        cartaoSelect.innerHTML += `<option value="${doc.id}">${cartao.nome} (final ${cartao.final})</option>`;
-                    });
-                } 
-                else if (['Cartão de Débito', 'Pix', 'Transferência'].includes(e.target.value)) {
-                    bancoFields.style.display = 'block';
-                    // Carrega os bancos do usuário
-                    const bancosRef = collection(db, 'users', currentUser.uid, 'bancos');
-                    const bancosSnap = await getDocs(bancosRef);
-                    const bancoSelect = form.querySelector('#gasto-banco');
-                    bancoSelect.innerHTML = '<option value="">Selecione um banco</option>';
-                    bancosSnap.forEach(doc => {
-                        const banco = doc.data();
-                        bancoSelect.innerHTML += `<option value="${doc.id}">${banco.nome} - Ag: ${banco.agencia} Conta: ${banco.conta}</option>`;
-                    });
-                }
-            });
+                    if (e.target.value === 'Cartão de Crédito') {
+                        if (cartaoCreditoFields) cartaoCreditoFields.style.display = 'block';
+                        // Carrega os cartões do usuário
+                        const cartoesRef = collection(db, 'users', currentUser.uid, 'cartoes');
+                        const cartoesSnap = await getDocs(cartoesRef);
+                        const cartaoSelect = safeQuerySelector(form, '#gasto-cartao');
+                        if (cartaoSelect) {
+                            cartaoSelect.innerHTML = '<option value="">Selecione um cartão</option>';
+                            cartoesSnap.forEach(doc => {
+                                const cartao = doc.data();
+                                cartaoSelect.innerHTML += `<option value="${doc.id}">${cartao.nome} (final ${cartao.final})</option>`;
+                            });
+                        }
+                    } 
+                    else if (['Cartão de Débito', 'Pix', 'Transferência'].includes(e.target.value)) {
+                        if (bancoFields) bancoFields.style.display = 'block';
+                        // Carrega os bancos do usuário
+                        const bancosRef = collection(db, 'users', currentUser.uid, 'bancos');
+                        const bancosSnap = await getDocs(bancosRef);
+                        const bancoSelect = safeQuerySelector(form, '#gasto-banco');
+                        if (bancoSelect) {
+                            bancoSelect.innerHTML = '<option value="">Selecione um banco</option>';
+                            bancosSnap.forEach(doc => {
+                                const banco = doc.data();
+                                bancoSelect.innerHTML += `<option value="${doc.id}">${banco.nome} - Ag: ${banco.agencia} Conta: ${banco.conta}</option>`;
+                            });
+                        }
+                    }
+                });
+            }
 
             // Controla campos de recorrência
-            gastoRecorrente.addEventListener('change', (e) => {
-                recorrenteFields.style.display = e.target.checked ? 'block' : 'none';
-            });
+            if (gastoRecorrente && recorrenteFields) {
+                gastoRecorrente.addEventListener('change', (e) => {
+                    recorrenteFields.style.display = e.target.checked ? 'block' : 'none';
+                });
+            }
         });
         
         // Função para carregar categorias personalizadas do usuário
@@ -6555,6 +6747,133 @@
                 }
             } catch (error) {
                 console.error('Erro ao carregar categorias personalizadas:', error);
+            }
+        }
+        
+        // Função para criar parcelas de um gasto no cartão de crédito
+        async function criarParcelas(gastoId, gastoDoc) {
+            if (!currentUser || !gastoId || !gastoDoc) return;
+            
+            try {
+                const parcelasRef = collection(db, 'users', currentUser.uid, 'gastos', gastoId, 'parcelas');
+                const valorParcela = gastoDoc.valor / gastoDoc.parcelas;
+                const dataBase = new Date(gastoDoc.data + 'T00:00:00');
+                
+                // Carregar informações do cartão para usar a data de fechamento e vencimento
+                let diaFechamento = 1;
+                let diaVencimento = 10;
+                
+                if (gastoDoc.cartaoId) {
+                    const cartaoRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', gastoDoc.cartaoId);
+                    const cartaoSnap = await getDoc(cartaoRef);
+                    if (cartaoSnap.exists()) {
+                        const cartaoData = cartaoSnap.data();
+                        diaFechamento = cartaoData.diaFechamento || diaFechamento;
+                        diaVencimento = cartaoData.diaVencimento || diaVencimento;
+                    }
+                }
+                
+                // Criar cada parcela
+                const batch = writeBatch(db);
+                
+                for (let i = 0; i < gastoDoc.parcelas; i++) {
+                    // Calcular a data desta parcela
+                    const dataParcela = new Date(dataBase);
+                    dataParcela.setMonth(dataBase.getMonth() + i);
+                    
+                    // Ajustar para considerar fechamento e vencimento do cartão
+                    let dataVencimento = new Date(dataParcela);
+                    
+                    // Se a compra foi após o fechamento, vai para a fatura do próximo mês
+                    if (dataParcela.getDate() > diaFechamento) {
+                        dataVencimento.setMonth(dataVencimento.getMonth() + 1);
+                    }
+                    
+                    // Ajustar para o dia de vencimento do cartão
+                    dataVencimento.setDate(diaVencimento);
+                    
+                    // Formatar data no formato YYYY-MM-DD para armazenar
+                    const dataFormatada = dataParcela.toISOString().split('T')[0];
+                    const dataVencFormatada = dataVencimento.toISOString().split('T')[0];
+                    
+                    const parcelaDoc = {
+                        parcela: i + 1,
+                        valorTotal: gastoDoc.valor,
+                        valor: valorParcela,
+                        data: dataFormatada,
+                        dataVencimento: dataVencFormatada,
+                        paga: false
+                    };
+                    
+                    // Adicionar ao batch
+                    const newParcelaRef = firestoreDoc(parcelasRef);
+                    batch.set(newParcelaRef, parcelaDoc);
+                    
+                    // Para cada parcela, atualizar a fatura correspondente
+                    await atualizarFaturaCartao(gastoDoc.cartaoId, dataVencimento, gastoId, valorParcela);
+                }
+                
+                // Commit do batch
+                await batch.commit();
+                
+                console.log(`${gastoDoc.parcelas} parcelas criadas com sucesso para o gasto ${gastoId}`);
+                return true;
+            } catch (error) {
+                console.error('Erro ao criar parcelas:', error);
+                return false;
+            }
+        }
+        
+        // Função para atualizar a fatura do cartão quando um novo gasto é registrado
+        async function atualizarFaturaCartao(cartaoId, dataVencimento, gastoId, valorParcela) {
+            if (!currentUser || !cartaoId || !gastoId) return;
+            
+            try {
+                // Determinar o mês e ano da fatura
+                const mes = dataVencimento.getMonth() + 1; // getMonth() retorna 0-11
+                const ano = dataVencimento.getFullYear();
+                const faturaId = `${ano}-${String(mes).padStart(2, '0')}`;
+                
+                // Referência para a fatura
+                const faturaRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartaoId, 'faturas', faturaId);
+                
+                // Buscar a fatura existente ou criar se não existir
+                const faturaSnap = await getDoc(faturaRef);
+                
+                if (faturaSnap.exists()) {
+                    // Atualizar a fatura existente
+                    const faturaData = faturaSnap.data();
+                    const valorTotal = (parseFloat(faturaData.valorTotal) || 0) + valorParcela;
+                    
+                    // Adicionar o gastoId à lista de gastos da fatura
+                    const gastos = faturaData.gastos || {};
+                    gastos[gastoId] = true;
+                    
+                    await updateDoc(faturaRef, {
+                        valorTotal,
+                        gastos,
+                        ultimaAtualizacao: serverTimestamp()
+                    });
+                } else {
+                    // Criar uma nova fatura
+                    const gastos = {};
+                    gastos[gastoId] = true;
+                    
+                    await setDoc(faturaRef, {
+                        valorTotal: valorParcela,
+                        gastos,
+                        pago: false,
+                        status: "Pendente",
+                        dataCriacao: serverTimestamp(),
+                        ultimaAtualizacao: serverTimestamp()
+                    });
+                }
+                
+                console.log(`Fatura ${faturaId} atualizada para o cartão ${cartaoId}`);
+                return true;
+            } catch (error) {
+                console.error('Erro ao atualizar fatura:', error);
+                return false;
             }
         }
         
@@ -6630,17 +6949,17 @@
                 
                 // Adicionar event listeners para os botões de editar e excluir
                 document.querySelectorAll('.btn-editar-categoria').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const id = e.currentTarget.dataset.id;
-                        const nome = e.currentTarget.dataset.nome;
+                    btn.addEventListener('click', function(e) {
+                        const id = this.dataset.id;
+                        const nome = this.dataset.nome;
                         editarCategoria(id, nome);
                     });
                 });
                 
                 document.querySelectorAll('.btn-excluir-categoria').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const id = e.currentTarget.dataset.id;
-                        const nome = e.currentTarget.dataset.nome;
+                    btn.addEventListener('click', function(e) {
+                        const id = this.dataset.id;
+                        const nome = this.dataset.nome;
                         excluirCategoria(id, nome);
                     });
                 });
@@ -6905,20 +7224,27 @@
                     
                     // Adicionar listeners para controlar a visibilidade dos campos
                     const form = document.getElementById('pagamento-form');
-                    const metodoPagamento = form.querySelector('#pagamento-metodo');
-                    const cartaoCreditoFields = form.querySelector('#pagamento-cartao-credito-fields');
-                    const bancoFields = form.querySelector('#pagamento-banco-fields');
+                    if (!form) {
+                        console.error('Formulário de pagamento não encontrado');
+                        return;
+                    }
                     
-                    metodoPagamento.addEventListener('change', () => {
-                        cartaoCreditoFields.style.display = 'none';
-                        bancoFields.style.display = 'none';
-                        
-                        if (metodoPagamento.value === 'Cartão de Crédito') {
-                            cartaoCreditoFields.style.display = 'block';
-                        } else if (['Cartão de Débito', 'Pix', 'Transferência'].includes(metodoPagamento.value)) {
-                            bancoFields.style.display = 'block';
-                        }
-                    });
+                    const metodoPagamento = safeQuerySelector(form, '#pagamento-metodo');
+                    const cartaoCreditoFields = safeQuerySelector(form, '#pagamento-cartao-credito-fields');
+                    const bancoFields = safeQuerySelector(form, '#pagamento-banco-fields');
+                    
+                    if (metodoPagamento) {
+                        metodoPagamento.addEventListener('change', () => {
+                            if (cartaoCreditoFields) cartaoCreditoFields.style.display = 'none';
+                            if (bancoFields) bancoFields.style.display = 'none';
+                            
+                            if (metodoPagamento.value === 'Cartão de Crédito') {
+                                if (cartaoCreditoFields) cartaoCreditoFields.style.display = 'block';
+                            } else if (['Cartão de Débito', 'Pix', 'Transferência'].includes(metodoPagamento.value)) {
+                                if (bancoFields) bancoFields.style.display = 'block';
+                            }
+                        });
+                    }
                     
                 } catch (error) {
                     console.error('Erro ao preparar pagamento:', error);
@@ -8768,16 +9094,8 @@
                 
                 openModal('Registrar Recebimento', formHtmlComBancos, async (data) => {
                     try {
-                        // Adiciona tooltip para mostrar informações sobre o banco
-                        document.querySelector('.tooltip').addEventListener('mouseenter', function() {
-                            this.querySelector('.tooltiptext').style.visibility = 'visible';
-                            this.querySelector('.tooltiptext').style.opacity = '1';
-                        });
-                        
-                        document.querySelector('.tooltip').addEventListener('mouseleave', function() {
-                            this.querySelector('.tooltiptext').style.visibility = 'hidden';
-                            this.querySelector('.tooltiptext').style.opacity = '0';
-                        });
+                        // Inicializa tooltips
+                        initializeTooltips();
                         
                         // Adiciona evento para mostrar o saldo atual do banco e a simulação após recebimento
                         const bancoSelect = document.getElementById('recebimento-banco');
@@ -8970,19 +9288,8 @@
                     // Setup callback - executa quando o modal é aberto e o conteúdo é inserido no DOM
                     () => {
                         try {
-                            // Adiciona tooltip para mostrar informações sobre o banco
-                            const tooltip = document.querySelector('.tooltip');
-                            if (tooltip) {
-                                tooltip.addEventListener('mouseenter', function() {
-                                    this.querySelector('.tooltiptext').style.visibility = 'visible';
-                                    this.querySelector('.tooltiptext').style.opacity = '1';
-                                });
-                                
-                                tooltip.addEventListener('mouseleave', function() {
-                                    this.querySelector('.tooltiptext').style.visibility = 'hidden';
-                                    this.querySelector('.tooltiptext').style.opacity = '0';
-                                });
-                            }
+                            // Inicializa tooltips
+                            initializeTooltips();
                             
                             // Inicializa os campos de método de pagamento e seus containers
                             const metodoSelect = document.getElementById('pagamento-metodo');
@@ -9331,9 +9638,9 @@
                         `;
                         
                         // Encontrar um elemento pai adequado para inserir o botão
-                        const parentElement = document.querySelector('#cartao-detalhe-valor-fatura').parentNode;
-                        if (parentElement) {
-                            parentElement.appendChild(container);
+                        const valorFaturaElement = document.getElementById('cartao-detalhe-valor-fatura');
+                        if (valorFaturaElement && valorFaturaElement.parentNode) {
+                            valorFaturaElement.parentNode.appendChild(container);
                             
                             // Adicionar evento de clique para visualizar comprovante
                             container.querySelector('.view-btn').addEventListener('click', function() {
