@@ -16,6 +16,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- MD5 para Gravatar -->
+    <script src="https://cdn.jsdelivr.net/npm/blueimp-md5@2.19.0/js/md5.min.js"></script>
+    
     <!-- Firebase Config -->
     <script src="firebase-config.js"></script>
 
@@ -3528,6 +3531,12 @@
             setDoc,
             writeBatch
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { 
+            getStorage,
+            ref as storageRef,
+            uploadBytes,
+            getDownloadURL
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
         
         // --- 1. CONFIGURAÇÃO E INICIALIZAÇÃO ---
         
@@ -3565,6 +3574,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app);
         setLogLevel('debug'); // 'debug' para ver logs detalhados, 'silent' para desativar
 
         let currentUser = null;
@@ -3682,8 +3692,8 @@
                     let height = img.height;
                     
                     // Reduzir o tamanho mantendo a proporção
-                    const MAX_WIDTH = 1200;
-                    const MAX_HEIGHT = 1200;
+                    const MAX_WIDTH = 300; // Reduzido para compatibilidade com Auth
+                    const MAX_HEIGHT = 300; // Reduzido para compatibilidade com Auth
                     
                     if (width > height) {
                         if (width > MAX_WIDTH) {
@@ -3732,6 +3742,40 @@
                 console.error(`Erro ao buscar elemento ${selector}:`, e);
                 return null;
             }
+        }
+        
+        /**
+         * Gera uma cor consistente baseada no nome do usuário
+         * @param {string} name - Nome do usuário
+         * @returns {string} - Código de cor hexadecimal sem #
+         */
+        function getAvatarColor(name) {
+            // Gera um hash simples baseado no nome
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            
+            // Lista de cores agradáveis para avatares
+            const colors = [
+                '4f46e5', // Indigo
+                '3b82f6', // Blue
+                '0ea5e9', // Sky
+                '06b6d4', // Cyan
+                '14b8a6', // Teal
+                '10b981', // Emerald
+                '22c55e', // Green
+                '84cc16', // Lime
+                'eab308', // Yellow
+                'f97316', // Orange
+                'ef4444', // Red
+                'ec4899', // Pink
+                'a855f7', // Purple
+            ];
+            
+            // Seleciona uma cor baseada no hash
+            const index = Math.abs(hash) % colors.length;
+            return colors[index];
         }
         
         /**
@@ -4123,7 +4167,14 @@
         function renderTopbar() {
             const topbar = document.getElementById('app-topbar');
             const userName = currentUser?.displayName || 'Usuário';
-            const userPhoto = currentUser?.photoURL || 'https://placehold.co/40x40/4f46e5/ffffff?text=U';
+            
+            // Gerar uma URL de avatar baseada no nome do usuário (primeira letra)
+            const firstLetter = (userName && userName.charAt(0).toUpperCase()) || 'U';
+            const avatarColor = getAvatarColor(userName || 'User');
+            const defaultPhotoUrl = `https://placehold.co/40x40/${avatarColor}/ffffff?text=${firstLetter}`;
+            
+            // Usar a foto do perfil do usuário ou o avatar gerado como fallback
+            const userPhoto = currentUser.photoURL || defaultPhotoUrl;
             
             topbar.innerHTML = `
                 <button id="mobile-menu-toggle" class="mobile-menu-toggle">
@@ -4132,7 +4183,7 @@
                 <h2 id="page-title">Dashboard</h2>
                 <div class="user-profile">
                     <span>Olá, ${userName}</span>
-                    <img src="${userPhoto}" alt="Foto do perfil" onerror="this.src='https://placehold.co/40x40/4f46e5/ffffff?text=U'">
+                    <img src="${userPhoto}" alt="Foto do perfil" onerror="this.src='${defaultPhotoUrl}'">
                 </div>
             `;
         }
@@ -8027,20 +8078,108 @@
                                 <small>O email não pode ser alterado.</small>
                             </div>
                             <div class="form-group">
-                                <label for="foto-usuario">Foto de Perfil (URL)</label>
-                                <input type="url" id="foto-usuario" name="photoURL" value="${user.photoURL || ''}">
-                                <small>Deixe em branco para usar a foto padrão.</small>
+                                <label>Foto de Perfil</label>
+                                <div style="margin-top: 10px; margin-bottom: 15px;">
+                                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                                        <div id="avatar-preview" style="width: 100px; height: 100px; border-radius: 50%; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: bold; color: white;">
+                                        </div>
+                                        <div style="flex: 1; min-width: 200px;">
+                                            <p style="margin-top: 0; margin-bottom: 10px;"><strong>Escolha um estilo de avatar:</strong></p>
+                                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                                    <input type="radio" name="avatar-style" value="initials" checked> 
+                                                    <span style="margin-left: 5px;">Iniciais</span>
+                                                </label>
+                                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                                    <input type="radio" name="avatar-style" value="identicon"> 
+                                                    <span style="margin-left: 5px;">Identicon</span>
+                                                </label>
+                                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                                    <input type="radio" name="avatar-style" value="retro"> 
+                                                    <span style="margin-left: 5px;">Retro</span>
+                                                </label>
+                                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                                    <input type="radio" name="avatar-style" value="robohash"> 
+                                                    <span style="margin-left: 5px;">Robô</span>
+                                                </label>
+                                            </div>
+                                            <small style="display: block; margin-top: 10px;">O avatar será gerado automaticamente baseado no seu nome e email.</small>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <button type="submit" class="btn btn-primary">Atualizar Perfil</button>
                         </form>
                     `;
                     
-                    openModal('Atualizar Perfil', formHtml, async (data) => {
+                    openModal('Atualizar Perfil', formHtml, () => {
+                        // Configurar o preview do avatar
+                        const avatarPreview = document.getElementById('avatar-preview');
+                        const avatarRadios = document.querySelectorAll('input[name="avatar-style"]');
+                        const userName = document.getElementById('nome-usuario').value;
+                        const userEmail = document.getElementById('email-usuario').value;
+                        
+                        // Função para atualizar o preview do avatar
+                        function updateAvatarPreview() {
+                            const selectedStyle = document.querySelector('input[name="avatar-style"]:checked').value;
+                            const name = document.getElementById('nome-usuario').value || userName;
+                            const email = userEmail;
+                            const hash = md5(email.toLowerCase());
+                            
+                            if (selectedStyle === 'initials') {
+                                // Estilo de iniciais
+                                const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+                                const color = getAvatarColor(name);
+                                avatarPreview.style.backgroundColor = '#' + color;
+                                avatarPreview.innerHTML = initials;
+                                avatarPreview.style.backgroundImage = 'none';
+                            } else {
+                                // Estilos do Gravatar
+                                const gravatarUrl = `https://www.gravatar.com/avatar/${hash}?d=${selectedStyle}&s=200`;
+                                avatarPreview.innerHTML = '';
+                                avatarPreview.style.backgroundImage = `url(${gravatarUrl})`;
+                                avatarPreview.style.backgroundSize = 'cover';
+                                avatarPreview.style.backgroundPosition = 'center';
+                            }
+                        }
+                        
+                        // Atualizar quando mudar o estilo
+                        avatarRadios.forEach(radio => {
+                            radio.addEventListener('change', updateAvatarPreview);
+                        });
+                        
+                        // Atualizar quando mudar o nome
+                        document.getElementById('nome-usuario').addEventListener('input', updateAvatarPreview);
+                        
+                        // Mostrar o preview inicial
+                        updateAvatarPreview();
+                    }, async (data) => {
                         try {
+                            // Gerar URL do avatar baseado no estilo selecionado
+                            const selectedStyle = document.querySelector('input[name="avatar-style"]:checked').value;
+                            const name = data.nome;
+                            const email = currentUser.email;
+                            const hash = md5(email.toLowerCase());
+                            
+                            let photoURL;
+                            
+                            if (selectedStyle === 'initials') {
+                                // Para o estilo de iniciais, usamos um placeholder que mostrará as iniciais
+                                // O código para renderizar as iniciais está na função renderTopbar
+                                photoURL = null;
+                            } else {
+                                // Usar o Gravatar com o estilo selecionado
+                                photoURL = `https://www.gravatar.com/avatar/${hash}?d=${selectedStyle}&s=200`;
+                            }
+                            
+                            // Atualizar o perfil do usuário
                             await updateProfile(currentUser, {
                                 displayName: data.nome,
-                                photoURL: data.photoURL || null
+                                photoURL: photoURL
                             });
+                            
+                            // Forçar atualização do usuário atual
+                            currentUser = auth.currentUser;
                             
                             showNotification('Perfil atualizado com sucesso!', 'success');
                             closeModal();
@@ -8049,7 +8188,15 @@
                             renderTopbar();
                         } catch (error) {
                             console.error('Erro ao atualizar perfil:', error);
-                            showNotification('Erro ao atualizar perfil.', 'error');
+                            
+                            // Mensagens de erro personalizadas
+                            console.error('Erro ao atualizar perfil:', error);
+                            
+                            if (error.code === 'auth/invalid-profile-attribute') {
+                                showNotification('Erro ao atualizar o perfil. Por favor, tente novamente.', 'error');
+                            } else {
+                                showNotification('Erro ao atualizar perfil. Por favor, tente novamente.', 'error');
+                            }
                         }
                     });
                 } catch (error) {
@@ -8066,6 +8213,10 @@
             const cardsContainer = document.getElementById('rendas-cards-container');
             const rendasRef = collection(db, 'users', currentUser.uid, 'rendas');
             const q = query(rendasRef);
+
+            // Adicionar evento ao botão "Nova Renda"
+            const addRendaBtn = document.getElementById('add-renda-btn');
+            addRendaBtn.addEventListener('click', abrirModalNovaRenda);
 
             // Remove qualquer filtro de mês existente para evitar duplicação
             const filtroExistente = document.querySelector('.filtro-mes-rendas');
@@ -8579,6 +8730,242 @@
                     console.error('Erro ao excluir renda:', error);
                     showNotification('Erro ao excluir renda.', 'error');
                 }
+            }
+        }
+
+        /**
+         * Função para abrir o modal de cadastro de nova renda
+         */
+        async function abrirModalNovaRenda() {
+            try {
+                if (!currentUser) return;
+                
+                const hoje = new Date().toISOString().split('T')[0];
+                
+                // Cria o formulário de nova renda
+                const formHtml = `
+                    <form id="renda-form">
+                        <div class="form-group">
+                            <label for="renda-descricao">Descrição</label>
+                            <input type="text" id="renda-descricao" name="descricao" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="renda-valor">Valor (R$)</label>
+                            <input type="number" step="0.01" id="renda-valor" name="valor" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="renda-data">Data</label>
+                            <input type="date" id="renda-data" name="data" value="${hoje}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="renda-categoria">Categoria</label>
+                            <select id="renda-categoria" name="categoria" required>
+                                <option value="">Selecione uma categoria</option>
+                                <option value="Salário">Salário</option>
+                                <option value="Freelance">Freelance</option>
+                                <option value="Investimentos">Investimentos</option>
+                                <option value="Outros">Outros</option>
+                                <!-- Categorias personalizadas serão adicionadas aqui -->
+                            </select>
+                            <button type="button" id="btn-gerenciar-categorias-renda" class="btn" style="white-space: nowrap; margin-top: 0.5rem;">
+                                <i class="fas fa-cog"></i> Gerenciar Categorias
+                            </button>
+                        </div>
+                        
+                        <!-- Tipo de Renda -->
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label for="renda-tipo">Tipo de Renda</label>
+                            <select id="renda-tipo" name="tipoRenda" required>
+                                <option value="fixa">Fixa</option>
+                                <option value="variavel">Variável</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Status de recebimento -->
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label for="renda-status">Status de Recebimento</label>
+                            <select id="renda-status" name="statusRecebimento" required>
+                                <option value="aguardando">Aguardando Recebimento</option>
+                                <option value="recebido">Já Recebido</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Campos condicionais para rendas já recebidas -->
+                        <div id="recebimento-fields" style="display: none;">
+                            <div class="form-group">
+                                <label for="renda-metodo">Método de Recebimento</label>
+                                <select id="renda-metodo" name="metodoRecebimento">
+                                    <option value="">Selecione o método</option>
+                                    <option value="Pix">Pix</option>
+                                    <option value="Transferência">Transferência</option>
+                                    <option value="Depósito">Depósito</option>
+                                    <option value="Dinheiro">Dinheiro</option>
+                                    <option value="Cheque">Cheque</option>
+                                    <option value="Outro">Outro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="renda-data-recebimento">Data de Recebimento</label>
+                                <input type="date" id="renda-data-recebimento" name="dataRecebimento" value="${hoje}">
+                            </div>
+                            <div class="form-group" id="banco-container">
+                                <label for="renda-banco">Banco de Destino</label>
+                                <select id="renda-banco" name="bancoId">
+                                    <option value="">Selecione um banco</option>
+                                    <!-- Será preenchido dinamicamente -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Campo para observações -->
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label for="renda-observacao">Observações (opcional)</label>
+                            <textarea id="renda-observacao" name="observacao" rows="3"></textarea>
+                        </div>
+                        
+                        <button type="submit" id="renda-submit-btn" class="btn btn-primary">Salvar</button>
+                    </form>
+                `;
+                
+                openModal('Nova Renda', formHtml, async (data) => {
+                    try {
+                        // Desabilita o botão de submit para evitar múltiplos cliques
+                        const submitBtn = document.getElementById('renda-submit-btn');
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+                        }
+                        
+                        // Preparar os dados da nova renda
+                        const rendaData = {
+                            ...data,
+                            dataCriacao: serverTimestamp(),
+                            dataAtualizacao: serverTimestamp()
+                        };
+                        
+                        // Adiciona a renda no Firestore
+                        const rendasRef = collection(db, 'users', currentUser.uid, 'rendas');
+                        const docRef = await addDoc(rendasRef, rendaData);
+                        
+                        // Ajustar saldo do banco se necessário
+                        if (data.statusRecebimento === 'recebido' && data.bancoId) {
+                            await atualizarSaldoBanco(data.bancoId, parseFloat(data.valor), true);
+                        }
+                        
+                        showNotification('Renda cadastrada com sucesso!', 'success');
+                        closeModal();
+                    } catch (error) {
+                        console.error('Erro ao cadastrar renda:', error);
+                        showNotification('Erro ao cadastrar renda.', 'error');
+                        
+                        // Reabilita o botão em caso de erro
+                        const submitBtn = document.getElementById('renda-submit-btn');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = 'Salvar';
+                        }
+                    }
+                });
+                
+                // Carregar categorias personalizadas
+                const categoriasSelect = document.getElementById('renda-categoria');
+                await carregarCategoriasPerssonalizadasRendas(categoriasSelect);
+                
+                // Botão para gerenciar categorias
+                document.getElementById('btn-gerenciar-categorias-renda').addEventListener('click', () => {
+                    abrirGerenciadorCategoriasRendas();
+                });
+                
+                // Controla campos de recebimento
+                const rendaStatus = document.getElementById('renda-status');
+                const recebimentoFields = document.getElementById('recebimento-fields');
+                
+                rendaStatus.addEventListener('change', async (e) => {
+                    recebimentoFields.style.display = e.target.value === 'recebido' ? 'block' : 'none';
+                    
+                    // Se marcou como recebido, já preenche a data de recebimento com a data atual
+                    if (e.target.value === 'recebido') {
+                        document.getElementById('renda-data-recebimento').value = hoje;
+                        
+                        // Carrega os bancos do usuário
+                        const bancosRef = collection(db, 'users', currentUser.uid, 'bancos');
+                        const bancosSnap = await getDocs(bancosRef);
+                        const bancoSelect = document.getElementById('renda-banco');
+                        bancoSelect.innerHTML = '<option value="">Selecione um banco</option>';
+                        
+                        if (bancosSnap.empty) {
+                            bancoSelect.innerHTML += '<option value="" disabled>Nenhum banco cadastrado</option>';
+                        } else {
+                            bancosSnap.forEach(doc => {
+                                const banco = doc.data();
+                                bancoSelect.innerHTML += `<option value="${doc.id}">${banco.nome} - Ag: ${banco.agencia} Conta: ${banco.conta}</option>`;
+                            });
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao abrir modal de nova renda:', error);
+                showNotification('Erro ao abrir modal de nova renda.', 'error');
+            }
+        }
+
+        /**
+         * Carrega as categorias personalizadas de rendas no select fornecido
+         * @param {HTMLSelectElement} selectElement - Elemento select para adicionar as categorias
+         */
+        async function carregarCategoriasPerssonalizadasRendas(selectElement) {
+            if (!currentUser || !selectElement) return;
+            
+            try {
+                const categoriasRef = collection(db, 'users', currentUser.uid, 'categoriasRendas');
+                const categoriasSnap = await getDocs(categoriasRef);
+                
+                if (!categoriasSnap.empty) {
+                    categoriasSnap.forEach(doc => {
+                        const categoria = doc.data();
+                        const option = document.createElement('option');
+                        option.value = categoria.nome;
+                        option.textContent = categoria.nome;
+                        selectElement.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Erro ao carregar categorias de rendas:', error);
+            }
+        }
+
+        /**
+         * Função para salvar uma nova categoria de renda
+         * @param {string} nomeCategoria - Nome da nova categoria
+         * @returns {Promise<boolean>} Sucesso ou falha da operação
+         */
+        async function salvarNovaCategoriaRenda(nomeCategoria) {
+            if (!nomeCategoria || !currentUser) return false;
+            
+            try {
+                // Verificar se a categoria já existe
+                const categoriasRef = collection(db, 'users', currentUser.uid, 'categoriasRendas');
+                const q = query(categoriasRef, where('nome', '==', nomeCategoria));
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    showNotification('Esta categoria já existe.', 'warning');
+                    return false;
+                }
+                
+                // Adicionar a nova categoria
+                await addDoc(categoriasRef, {
+                    nome: nomeCategoria,
+                    dataCriacao: serverTimestamp(),
+                    dataAtualizacao: serverTimestamp()
+                });
+                
+                showNotification('Categoria adicionada com sucesso!', 'success');
+                return true;
+            } catch (error) {
+                console.error('Erro ao salvar nova categoria:', error);
+                showNotification('Erro ao salvar nova categoria.', 'error');
+                return false;
             }
         }
 
@@ -11158,6 +11545,169 @@
         document.getElementById('btn-gerenciar-limites-gastos').addEventListener('click', function() {
             abrirGerenciadorLimitesGastos();
         });
+        
+        // Função para abrir o gerenciador de metas de rendas
+        async function abrirGerenciadorMetasRendas() {
+            try {
+                if (!currentUser) return;
+                
+                // Buscar categorias de rendas para o select
+                const categoriasRendasRef = collection(db, 'users', currentUser.uid, 'categoriasRendas');
+                const categoriasRendasSnap = await getDocs(categoriasRendasRef);
+                
+                // Categorias padrão + personalizadas
+                let opcoesCategorias = `
+                    <option value="">Selecione uma categoria</option>
+                    <option value="Salário">Salário</option>
+                    <option value="Freelance">Freelance</option>
+                    <option value="Investimentos">Investimentos</option>
+                    <option value="Outros">Outros</option>
+                `;
+                
+                // Adicionar categorias personalizadas
+                categoriasRendasSnap.forEach(doc => {
+                    const categoria = doc.data();
+                    opcoesCategorias += `<option value="${categoria.nome}">${categoria.nome}</option>`;
+                });
+                
+                // Buscar metas existentes
+                const metasRendasRef = collection(db, 'users', currentUser.uid, 'metasRendas');
+                const metasRendasSnap = await getDocs(metasRendasRef);
+                
+                // Criar lista de metas existentes
+                let listaMetasRendas = '';
+                if (metasRendasSnap.empty) {
+                    listaMetasRendas = '<p>Você ainda não configurou nenhuma meta de renda.</p>';
+                } else {
+                    listaMetasRendas = '<div class="metas-list">';
+                    metasRendasSnap.forEach(doc => {
+                        const meta = doc.data();
+                        listaMetasRendas += `
+                            <div class="meta-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color);">
+                                <div>
+                                    <strong>${meta.categoria}</strong><br>
+                                    Meta: R$ ${parseFloat(meta.valorMeta).toFixed(2)}
+                                </div>
+                                <div>
+                                    <button class="btn-excluir-meta-renda" data-id="${doc.id}" style="background: none; border: none; cursor: pointer; color: var(--danger-color);">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    listaMetasRendas += '</div>';
+                }
+                
+                // HTML para o modal
+                const formHtml = `
+                    <div class="metas-rendas-container">
+                        <div class="nova-meta-form" style="margin-bottom: 20px;">
+                            <h4>Adicionar Nova Meta de Renda</h4>
+                            <form id="form-nova-meta-renda">
+                                <div class="form-group">
+                                    <label for="categoria-meta-renda">Categoria</label>
+                                    <select id="categoria-meta-renda" name="categoria" class="form-control" required>
+                                        ${opcoesCategorias}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="valor-meta-renda">Valor Meta Mensal (R$)</label>
+                                    <input type="number" step="0.01" id="valor-meta-renda" name="valorMeta" class="form-control" required>
+                                </div>
+                                <div class="form-actions" style="margin-top: 15px;">
+                                    <button type="submit" class="btn btn-primary">Adicionar Meta</button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <h4>Metas Existentes</h4>
+                        <div id="lista-metas-rendas">
+                            ${listaMetasRendas}
+                        </div>
+                    </div>
+                `;
+                
+                openModal('Gerenciar Metas de Rendas', formHtml);
+                
+                // Lidar com a adição de nova meta
+                document.getElementById('form-nova-meta-renda').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const form = e.target;
+                    const categoria = form.categoria.value;
+                    const valorMeta = parseFloat(form.valorMeta.value);
+                    
+                    if (!categoria || !valorMeta || isNaN(valorMeta)) {
+                        showNotification('Por favor, preencha todos os campos corretamente.', 'warning');
+                        return;
+                    }
+                    
+                    // Verificar se já existe uma meta para esta categoria
+                    const metaExistenteQuery = query(metasRendasRef, where("categoria", "==", categoria));
+                    const metaExistenteSnap = await getDocs(metaExistenteQuery);
+                    
+                    if (!metaExistenteSnap.empty) {
+                        showNotification('Já existe uma meta para esta categoria. Exclua a meta existente primeiro.', 'warning');
+                        return;
+                    }
+                    
+                    try {
+                        // Adicionar nova meta
+                        await addDoc(metasRendasRef, {
+                            categoria: categoria,
+                            valorMeta: valorMeta,
+                            dataCriacao: serverTimestamp(),
+                            dataAtualizacao: serverTimestamp()
+                        });
+                        
+                        showNotification('Meta de renda adicionada com sucesso!', 'success');
+                        
+                        // Recarregar o modal
+                        closeModal();
+                        abrirGerenciadorMetasRendas();
+                        
+                        // Atualizar o dashboard se estiver na página inicial
+                        if (window.location.hash === '#dashboard' || window.location.hash === '') {
+                            carregarMetasDashboard();
+                        }
+                    } catch (error) {
+                        console.error('Erro ao adicionar meta de renda:', error);
+                        showNotification('Erro ao adicionar meta de renda.', 'error');
+                    }
+                });
+                
+                // Adicionar listeners para excluir metas
+                document.querySelectorAll('.btn-excluir-meta-renda').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        if (confirm('Tem certeza que deseja excluir esta meta?')) {
+                            const metaId = btn.dataset.id;
+                            
+                            try {
+                                await deleteDoc(firestoreDoc(db, 'users', currentUser.uid, 'metasRendas', metaId));
+                                showNotification('Meta excluída com sucesso!', 'success');
+                                
+                                // Recarregar modal
+                                closeModal();
+                                abrirGerenciadorMetasRendas();
+                                
+                                // Atualizar dashboard se estiver na página inicial
+                                if (window.location.hash === '#dashboard' || window.location.hash === '') {
+                                    carregarMetasDashboard();
+                                }
+                            } catch (error) {
+                                console.error('Erro ao excluir meta:', error);
+                                showNotification('Erro ao excluir meta.', 'error');
+                            }
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar gerenciador de metas de rendas:', error);
+                showNotification('Erro ao carregar gerenciador de metas.', 'error');
+            }
+        }
         
         // Função para abrir o gerenciador de limites de gastos
         async function abrirGerenciadorLimitesGastos() {
