@@ -5,13 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FinControle - Seu Controle Financeiro Pessoal</title>
 
-    <!-- Google Fonts -->
+    <!-- Google Fonts - Open Sans para compatibilidade com o tema Argon -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Argon Dashboard Tailwind CSS -->
+    <link rel="stylesheet" href="css/argon-dashboard-tailwind.css">
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -22,19 +26,42 @@
     <!-- Scripts de correção -->
     <script src="fix_modals.js"></script>
     <script src="fix_pix.js"></script>
+    
+    <!-- Script para corrigir problemas de data -->
+    <script>
+        // Função para obter a data local corrigida no formato YYYY-MM-DD (antes do carregamento do fix_modals.js)
+        window.getDataLocalCorrigida = function() {
+            const data = new Date();
+            // Configurar para o fuso horário de São Paulo/Brasil (GMT-3)
+            const options = { timeZone: 'America/Sao_Paulo' };
+            const dataLocal = new Intl.DateTimeFormat('pt-BR', options).format(data).split('/');
+            const dia = dataLocal[0];
+            const mes = dataLocal[1];
+            const ano = dataLocal[2];
+            return `${ano}-${mes}-${dia}`;
+        };
+    </script>
 
-    <!-- Estilos CSS -->
+    <!-- Estilos CSS personalizados -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Argon Dashboard JavaScript -->
+    <script src="js/argon-dashboard.js"></script>
+    
+    <!-- Dashboard Utilities -->
+    <script src="js/dashboard-utils.js"></script>
+    
     <style>
         :root {
-            --primary-color: #1e40af;
-            --secondary-color: #10b981;
-            --danger-color: #ef4444;
-            --text-color: #1e293b;
-            --subtle-text-color: #64748b;
-            --border-color: #e2e8f0;
+            --primary-color: #5e72e4; /* Cor primária do Argon */
+            --secondary-color: #2dce89; /* Cor secundária do Argon */
+            --danger-color: #f5365c; /* Cor de perigo do Argon */
+            --text-color: #344767; /* Cor de texto do Argon */
+            --subtle-text-color: #67748e;
+            --border-color: #e9ecef;
             --surface-color: #ffffff;
-            --background-color: #f1f5f9;
-            --shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            --background-color: #f8f9fa;
+            --shadow: 0 7px 14px rgba(50,50,93,.1), 0 3px 6px rgba(0,0,0,.08);
             --border-radius: 8px;
         }
         
@@ -2949,11 +2976,7 @@
                 
                 if (isMobile) {
                     // Transformar tabelas em cards quando redimensionar para mobile
-                    if (typeof transformarTabelasDashboardEmCards === 'function') {
-                        transformarTabelasDashboardEmCards();
-                    } else {
-                        console.log('Função transformarTabelasDashboardEmCards ainda não está definida');
-                    }
+                    transformarTabelasDashboardEmCards();
                 } else {
                     // Em telas maiores, esconder os cards e mostrar as tabelas
                     const cardViews = dashboardPage.querySelectorAll('.dashboard-card-view');
@@ -4201,6 +4224,8 @@
             // Inicializar tooltips no modal
             setTimeout(() => {
                 initializeTooltips();
+                // Inicializa os campos de data com a data atual no fuso horário brasileiro
+                inicializarCamposData();
             }, 100);
 
             // Compatibilidade com versão anterior
@@ -4325,7 +4350,75 @@
         });
 
 
-        // --- 4. LÓGICA DE AUTENTICAÇÃO (AUTH) ---
+        /**
+         * Converte string de data para o fuso horário de São Paulo (Brasil)
+         * @param {string|Date} dataString - A data a ser convertida
+         * @returns {Date} - A data no fuso horário de São Paulo
+         */
+        function converterDataParaFusoBrasil(dataString) {
+            // Se for uma string de data no formato YYYY-MM-DD
+            if (dataString && typeof dataString === 'string') {
+                // Cria a data com o fuso horário de São Paulo (GMT-3)
+                const data = new Date(`${dataString}T12:00:00-03:00`);
+                return data;
+            }
+            // Se for um objeto Date, retorna como está
+            if (dataString instanceof Date) {
+                return dataString;
+            }
+            // Caso contrário, retorna a data atual no fuso de São Paulo
+            return new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+        }
+        
+        /**
+         * Formata data no formato brasileiro
+         * @param {Date|string} data - A data a ser formatada
+         * @returns {string} - A data formatada no padrão brasileiro
+         */
+        function formatarDataBrasil(data) {
+            if (!(data instanceof Date)) {
+                if (typeof data === 'string') {
+                    data = converterDataParaFusoBrasil(data);
+                } else {
+                    return '';
+                }
+            }
+            return data.toLocaleDateString('pt-BR', {timeZone: 'America/Sao_Paulo'});
+        }
+        
+        /**
+         * Retorna a data atual no fuso horário de São Paulo (Brasil)
+         * @returns {Date} - A data atual no fuso horário de São Paulo
+         */
+        function obterDataAtualBrasil() {
+            return new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+        }
+        
+        /**
+         * Retorna a data atual no fuso horário de São Paulo (Brasil) no formato YYYY-MM-DD
+         * @returns {string} - A data atual no formato YYYY-MM-DD
+         */
+        function obterDataAtualBrasilFormatada() {
+            return obterDataAtualBrasil().toISOString().split('T')[0];
+        }
+
+
+        // Função para inicializar todos os campos de data com a data atual no fuso horário brasileiro
+function inicializarCamposData() {
+    // Substitui todas as strings de template que usam new Date().toISOString() por obterDataAtualBrasilFormatada()
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        if (input.value === '') {
+            input.value = obterDataAtualBrasilFormatada();
+        }
+    });
+}
+
+// Adiciona a função ao carregamento da página
+document.addEventListener('DOMContentLoaded', function() {
+    inicializarCamposData();
+});
+
+// --- 4. LÓGICA DE AUTENTICAÇÃO (AUTH) ---
 
         // Gerenciador de abas de login/cadastro
         document.querySelectorAll('.auth-tab').forEach(tab => {
@@ -4498,6 +4591,9 @@
             renderTopbar();
             setupNavigation();
             setupDashboardNavigation();
+            
+            // Inicializa os campos de data com a data atual no fuso horário brasileiro
+            inicializarCamposData();
         }
 
         /**
@@ -4758,422 +4854,12 @@
             
             // Marcar o botão do mês atual como ativo
             document.getElementById('btn-dashboard-atual').classList.add('active');
-        }
+                  }
+          
+          // Função para criar rodapé com botão de ação (se existir)
+          // A função criarRodapeCard foi movida para o arquivo dashboard-utils.js
         
-        // Função para transformar tabelas em cards para visualização mobile
-        function transformarTabelasDashboardEmCards() {
-            // Verificar se estamos em um dispositivo móvel
-            const isMobile = window.innerWidth <= 576;
-            if (!isMobile) return;
-            
-            // Transformar tabela de bancos
-            transformarTabelaEmCardsDashboard('dashboard-bancos-list', 'bancos');
-            
-            // Transformar tabela de faturas
-            transformarTabelaEmCardsDashboard('dashboard-faturas-list', 'faturas');
-            
-            // Transformar tabela de rendas
-            transformarTabelaEmCardsDashboard('dashboard-rendas-list', 'rendas');
-            
-            // Transformar tabela de gastos pendentes
-            transformarTabelaEmCardsDashboard('dashboard-gastos-pendentes-list', 'gastos');
-        }
-        
-        // Função genérica para transformar uma tabela específica em cards
-        function transformarTabelaEmCardsDashboard(containerId, tipo) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            
-            // Verificar se já existe uma visualização em cards
-            if (container.querySelector('.dashboard-card-view')) return;
-            
-            // Encontrar a tabela dentro do container
-            const tabela = container.querySelector('table');
-            if (!tabela) return;
-            
-            // Criar o container para os cards
-            const cardView = document.createElement('div');
-            cardView.className = 'dashboard-card-view';
-            
-            // Obter os cabeçalhos da tabela
-            const headers = Array.from(tabela.querySelectorAll('thead th')).map(th => th.textContent.trim());
-            
-            // Obter as linhas de dados
-            const rows = tabela.querySelectorAll('tbody tr');
-            if (!rows.length) return;
-            
-            // Para cada linha, criar um card
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (!cells.length) return;
-                
-                // Criar o card
-                const card = document.createElement('div');
-                card.className = 'dashboard-data-card';
-                
-                // Conteúdo do card varia dependendo do tipo
-                switch(tipo) {
-                    case 'bancos':
-                        criarCardBanco(card, cells, headers);
-                        break;
-                    case 'faturas':
-                        criarCardFatura(card, cells, headers);
-                        break;
-                    case 'rendas':
-                        criarCardRenda(card, cells, headers);
-                        break;
-                    case 'gastos':
-                        criarCardGasto(card, cells, headers);
-                        break;
-                    default:
-                        criarCardGenerico(card, cells, headers);
-                }
-                
-                // Adicionar o card ao container
-                cardView.appendChild(card);
-            });
-            
-            // Adicionar a visualização em cards ao container
-            container.appendChild(cardView);
-        }
-        
-        // Função para criar um card de banco
-        function criarCardBanco(card, cells, headers) {
-            // Cabeçalho do card com nome do banco e saldo
-            const header = document.createElement('div');
-            header.className = 'card-header';
-            
-            const title = document.createElement('div');
-            title.className = 'card-title';
-            title.textContent = cells[0].textContent.trim(); // Nome do banco
-            
-            const value = document.createElement('div');
-            value.className = 'card-value';
-            const saldo = cells[3].textContent.trim(); // Saldo
-            value.textContent = saldo;
-            
-            // Adicionar classe baseada no valor (positivo/negativo)
-            if (saldo.includes('-')) {
-                value.classList.add('negative');
-            } else {
-                value.classList.add('positive');
-            }
-            
-            header.appendChild(title);
-            header.appendChild(value);
-            card.appendChild(header);
-            
-            // Conteúdo do card com detalhes do banco
-            const content = document.createElement('div');
-            content.className = 'card-content';
-            
-            // Tipo de conta
-            const tipoItem = document.createElement('div');
-            tipoItem.className = 'card-item';
-            
-            const tipoLabel = document.createElement('div');
-            tipoLabel.className = 'card-label';
-            tipoLabel.textContent = 'Tipo de Conta';
-            
-            const tipoText = document.createElement('div');
-            tipoText.className = 'card-text';
-            tipoText.textContent = cells[1].textContent.trim(); // Tipo de conta
-            
-            tipoItem.appendChild(tipoLabel);
-            tipoItem.appendChild(tipoText);
-            content.appendChild(tipoItem);
-            
-            // Agência/Conta
-            const contaItem = document.createElement('div');
-            contaItem.className = 'card-item';
-            
-            const contaLabel = document.createElement('div');
-            contaLabel.className = 'card-label';
-            contaLabel.textContent = 'Agência/Conta';
-            
-            const contaText = document.createElement('div');
-            contaText.className = 'card-text';
-            contaText.textContent = cells[2].textContent.trim(); // Agência/Conta
-            
-            contaItem.appendChild(contaLabel);
-            contaItem.appendChild(contaText);
-            content.appendChild(contaItem);
-            
-            card.appendChild(content);
-        }
-        
-        // Função para criar um card de fatura
-        function criarCardFatura(card, cells, headers) {
-            // Cabeçalho do card com nome do cartão e valor da fatura
-            const header = document.createElement('div');
-            header.className = 'card-header';
-            
-            const title = document.createElement('div');
-            title.className = 'card-title';
-            title.textContent = cells[0].textContent.trim(); // Nome do cartão
-            
-            const value = document.createElement('div');
-            value.className = 'card-value negative';
-            value.textContent = cells[1].textContent.trim(); // Valor da fatura
-            
-            header.appendChild(title);
-            header.appendChild(value);
-            card.appendChild(header);
-            
-            // Conteúdo do card com detalhes da fatura
-            const content = document.createElement('div');
-            content.className = 'card-content';
-            
-            // Vencimento
-            const vencItem = document.createElement('div');
-            vencItem.className = 'card-item';
-            
-            const vencLabel = document.createElement('div');
-            vencLabel.className = 'card-label';
-            vencLabel.textContent = 'Vencimento';
-            
-            const vencText = document.createElement('div');
-            vencText.className = 'card-text';
-            vencText.textContent = cells[2].textContent.trim(); // Vencimento
-            
-            vencItem.appendChild(vencLabel);
-            vencItem.appendChild(vencText);
-            content.appendChild(vencItem);
-            
-            // Status
-            const statusItem = document.createElement('div');
-            statusItem.className = 'card-item';
-            
-            const statusLabel = document.createElement('div');
-            statusLabel.className = 'card-label';
-            statusLabel.textContent = 'Status';
-            
-            const statusText = document.createElement('div');
-            statusText.className = 'card-text';
-            statusText.innerHTML = cells[3].innerHTML; // Status (mantém formatação HTML)
-            
-            statusItem.appendChild(statusLabel);
-            statusItem.appendChild(statusText);
-            content.appendChild(statusItem);
-            
-            card.appendChild(content);
-            
-            // Rodapé com botão de ação (se existir)
-            if (cells[4]) {
-                const footer = document.createElement('div');
-                footer.className = 'card-footer';
-                footer.innerHTML = cells[4].innerHTML; // Botões de ação
-                card.appendChild(footer);
-            }
-        }
-        
-        // Função para criar um card de renda
-        function criarCardRenda(card, cells, headers) {
-            // Cabeçalho do card com descrição e valor
-            const header = document.createElement('div');
-            header.className = 'card-header';
-            
-            const title = document.createElement('div');
-            title.className = 'card-title';
-            title.textContent = cells[0].textContent.trim(); // Descrição
-            
-            const value = document.createElement('div');
-            value.className = 'card-value positive';
-            value.textContent = cells[1].textContent.trim(); // Valor
-            
-            header.appendChild(title);
-            header.appendChild(value);
-            card.appendChild(header);
-            
-            // Conteúdo do card com detalhes da renda
-            const content = document.createElement('div');
-            content.className = 'card-content';
-            
-            // Data
-            const dataItem = document.createElement('div');
-            dataItem.className = 'card-item';
-            
-            const dataLabel = document.createElement('div');
-            dataLabel.className = 'card-label';
-            dataLabel.textContent = 'Data';
-            
-            const dataText = document.createElement('div');
-            dataText.className = 'card-text';
-            dataText.textContent = cells[2].textContent.trim(); // Data
-            
-            dataItem.appendChild(dataLabel);
-            dataItem.appendChild(dataText);
-            content.appendChild(dataItem);
-            
-            // Categoria
-            const catItem = document.createElement('div');
-            catItem.className = 'card-item';
-            
-            const catLabel = document.createElement('div');
-            catLabel.className = 'card-label';
-            catLabel.textContent = 'Categoria';
-            
-            const catText = document.createElement('div');
-            catText.className = 'card-text';
-            catText.textContent = cells[3].textContent.trim(); // Categoria
-            
-            catItem.appendChild(catLabel);
-            catItem.appendChild(catText);
-            content.appendChild(catItem);
-            
-            card.appendChild(content);
-            
-            // Rodapé com botões de ação
-            if (cells[4]) {
-                const footer = document.createElement('div');
-                footer.className = 'card-footer';
-                footer.innerHTML = cells[4].innerHTML; // Botões de ação
-                card.appendChild(footer);
-            }
-        }
-        
-        // Função para criar um card de gasto
-        function criarCardGasto(card, cells, headers) {
-            // Verificar se é um gasto pendente
-            if (cells[0].closest('tr').classList.contains('gasto-pendente')) {
-                card.classList.add('pendente');
-            }
-            
-            // Cabeçalho do card com descrição e valor
-            const header = document.createElement('div');
-            header.className = 'card-header';
-            
-            const title = document.createElement('div');
-            title.className = 'card-title';
-            title.textContent = cells[0].textContent.trim(); // Descrição
-            
-            const value = document.createElement('div');
-            value.className = 'card-value negative';
-            value.textContent = cells[1].textContent.trim(); // Valor
-            
-            header.appendChild(title);
-            header.appendChild(value);
-            card.appendChild(header);
-            
-            // Conteúdo do card com detalhes do gasto
-            const content = document.createElement('div');
-            content.className = 'card-content';
-            
-            // Data
-            const dataItem = document.createElement('div');
-            dataItem.className = 'card-item';
-            
-            const dataLabel = document.createElement('div');
-            dataLabel.className = 'card-label';
-            dataLabel.textContent = 'Data';
-            
-            const dataText = document.createElement('div');
-            dataText.className = 'card-text';
-            dataText.textContent = cells[2].textContent.trim(); // Data
-            
-            dataItem.appendChild(dataLabel);
-            dataItem.appendChild(dataText);
-            content.appendChild(dataItem);
-            
-            // Categoria
-            const catItem = document.createElement('div');
-            catItem.className = 'card-item';
-            
-            const catLabel = document.createElement('div');
-            catLabel.className = 'card-label';
-            catLabel.textContent = 'Categoria';
-            
-            const catText = document.createElement('div');
-            catText.className = 'card-text';
-            catText.textContent = cells[3].textContent.trim(); // Categoria
-            
-            catItem.appendChild(catLabel);
-            catItem.appendChild(catText);
-            content.appendChild(catItem);
-            
-            // Método
-            const metodoItem = document.createElement('div');
-            metodoItem.className = 'card-item';
-            
-            const metodoLabel = document.createElement('div');
-            metodoLabel.className = 'card-label';
-            metodoLabel.textContent = 'Método';
-            
-            const metodoText = document.createElement('div');
-            metodoText.className = 'card-text';
-            metodoText.textContent = cells[4].textContent.trim(); // Método
-            
-            metodoItem.appendChild(metodoLabel);
-            metodoItem.appendChild(metodoText);
-            content.appendChild(metodoItem);
-            
-            card.appendChild(content);
-            
-            // Detalhes (se existirem)
-            if (cells[5] && cells[5].innerHTML.trim() !== '-') {
-                const details = document.createElement('div');
-                details.className = 'card-details';
-                details.innerHTML = cells[5].innerHTML; // Detalhes (mantém formatação HTML)
-                card.appendChild(details);
-            }
-            
-            // Rodapé com botões de ação
-            if (cells[6]) {
-                const footer = document.createElement('div');
-                footer.className = 'card-footer';
-                footer.innerHTML = cells[6].innerHTML; // Botões de ação
-                card.appendChild(footer);
-            }
-        }
-        
-        // Função para criar um card genérico
-        function criarCardGenerico(card, cells, headers) {
-            // Cabeçalho do card
-            const header = document.createElement('div');
-            header.className = 'card-header';
-            
-            const title = document.createElement('div');
-            title.className = 'card-title';
-            title.textContent = cells[0].textContent.trim(); // Primeira coluna como título
-            
-            header.appendChild(title);
-            card.appendChild(header);
-            
-            // Conteúdo do card
-            const content = document.createElement('div');
-            content.className = 'card-content';
-            
-            // Adicionar cada célula como um item no card
-            for (let i = 1; i < cells.length - 1; i++) {
-                if (headers[i]) {
-                    const item = document.createElement('div');
-                    item.className = 'card-item';
-                    
-                    const label = document.createElement('div');
-                    label.className = 'card-label';
-                    label.textContent = headers[i];
-                    
-                    const text = document.createElement('div');
-                    text.className = 'card-text';
-                    text.innerHTML = cells[i].innerHTML; // Mantém formatação HTML
-                    
-                    item.appendChild(label);
-                    item.appendChild(text);
-                    content.appendChild(item);
-                }
-            }
-            
-            card.appendChild(content);
-            
-            // Rodapé com última coluna (geralmente botões de ação)
-            const lastIndex = cells.length - 1;
-            if (cells[lastIndex]) {
-                const footer = document.createElement('div');
-                footer.className = 'card-footer';
-                footer.innerHTML = cells[lastIndex].innerHTML;
-                card.appendChild(footer);
-            }
-        }
+        // As funções criarCardRenda, criarCardGasto e criarCardGenerico foram movidas para o arquivo dashboard-utils.js
         
         // --- Dashboard ---
         async function loadDashboardData(mes = new Date()) {
@@ -6994,7 +6680,12 @@
             `;
 
             // Abre o modal com o formulário
-            openModal('Novo Gasto', formHtml, async (data) => {
+            openModal('Novo Gasto', formHtml, () => {
+                // Inicializa o campo de data com a data atual no fuso horário brasileiro
+                const dataFormatada = obterDataAtualBrasilFormatada();
+                const campoData = document.getElementById('gasto-data');
+                if (campoData) campoData.value = dataFormatada;
+            }, async (data) => {
                 // Implementação da função de callback que será executada quando o formulário for submetido
                 try {
                     // Verificar se foi informada uma nova categoria
@@ -7029,7 +6720,8 @@
                     const gastoDoc = {
                         descricao: data.descricao,
                         valor: parseFloat(data.valor),
-                        data: data.data,
+                        data: data.data, // Mantém o formato original para compatibilidade
+                        dataObj: converterDataParaFusoBrasil(data.data), // Adiciona a data convertida para o fuso de São Paulo
                         categoria: data.categoria,
                         metodoPagamento: data.metodoPagamento,
                         observacao: data.observacao || '',
@@ -7070,7 +6762,7 @@
                             await criarParcelas(docRef.id, gastoDoc);
                         } else {
                             // Para compras à vista, atualizar diretamente a fatura atual
-                            const dataCompra = new Date(data.data + 'T00:00:00');
+                            const dataCompra = converterDataParaFusoBrasil(data.data);
                             
                             // Carregar informações do cartão para vencimento
                             const cartaoRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', data.cartaoId);
@@ -7244,7 +6936,7 @@
             try {
                 const parcelasRef = collection(db, 'users', currentUser.uid, 'gastos', gastoId, 'parcelas');
                 const valorParcela = gastoDoc.valor / gastoDoc.parcelas;
-                const dataBase = new Date(gastoDoc.data + 'T00:00:00');
+                const dataBase = gastoDoc.dataObj || converterDataParaFusoBrasil(gastoDoc.data);
                 
                 // Carregar informações do cartão para usar a data de fechamento e vencimento
                 let diaFechamento = 1;
@@ -7826,7 +7518,7 @@
                 const cartaoSnap = await getDoc(cartaoRef);
                 if (cartaoSnap.exists()) {
                     const cartao = cartaoSnap.data();
-                    const dataGasto = new Date(gasto.data + 'T00:00:00'); 
+                    const dataGasto = gasto.dataObj || converterDataParaFusoBrasil(gasto.data);
                     
                     // Determina a fatura correta usando a função auxiliar
                     const { mesFatura, anoFatura, faturaId } = determinarFaturaCartao(dataGasto, cartao);
@@ -10672,21 +10364,27 @@
                     </form>
                 `;
                 
-                openModal('Novo Lançamento', formHtml, async (data) => {
+                openModal('Novo Lançamento', formHtml, () => {
+                    // Inicializa o campo de data com a data atual no fuso horário brasileiro
+                    const dataFormatada = obterDataAtualBrasilFormatada();
+                    const campoData = document.getElementById('lancamento-data');
+                    if (campoData) campoData.value = dataFormatada;
+                }, async (data) => {
                     try {
                         // Primeiro, criar um gasto normal
                         const gastoData = {
                             ...data,
                             metodoPagamento: 'Cartão de Crédito',
                             cartaoId: cartaoId,
-                            dataCriacao: serverTimestamp()
+                            dataCriacao: serverTimestamp(),
+                            dataObj: converterDataParaFusoBrasil(data.data) // Adiciona a data convertida para o fuso de São Paulo
                         };
                         
                         // Adicionar o gasto à coleção de gastos
                         const gastoRef = await addDoc(collection(db, 'users', currentUser.uid, 'gastos'), gastoData);
                         
                         // Atualizar a fatura do cartão
-                        const dataGasto = new Date(data.data + 'T00:00:00');
+                        const dataGasto = converterDataParaFusoBrasil(data.data);
                         let mesFatura = dataGasto.getMonth();
                         let anoFatura = dataGasto.getFullYear();
                         
@@ -12865,8 +12563,11 @@
                 // Configurar os filtros de mês
                 configurarFiltroMes();
                 
-                // Carregar dados de exemplo (substituir por dados do Firestore em produção)
-                carregarDadosExemplo();
+                // Carregar dados do Firestore
+                carregarDadosFirestore();
+                
+                // Aplicar filtros para exibir todos os registros por padrão
+                aplicarFiltros();
                 
                 // Configurar botões de ação
                 configurarBotoesAcao();
@@ -12887,6 +12588,13 @@
             // Limpar opções existentes
             selectMes.innerHTML = '';
             
+            // Adicionar opção para visualizar todos os registros
+            const optionTodos = document.createElement('option');
+            optionTodos.value = 'todos';
+            optionTodos.textContent = 'Todos os registros';
+            optionTodos.selected = true; // Seleciona "Todos os registros" por padrão
+            selectMes.appendChild(optionTodos);
+            
             // Data atual
             const hoje = new Date();
             const mesAtual = hoje.getMonth();
@@ -12905,11 +12613,6 @@
                 ];
                 option.textContent = `${nomesMeses[data.getMonth()]} de ${data.getFullYear()}`;
                 
-                // Seleciona o mês atual por padrão
-                if (i === 0) {
-                    option.selected = true;
-                }
-                
                 selectMes.appendChild(option);
             }
             
@@ -12919,8 +12622,20 @@
             });
             
             document.getElementById('btn-limpar-filtro-horas').addEventListener('click', () => {
-                document.getElementById('filtro-mes-horas').selectedIndex = 0;
+                // Selecionar a opção "Todos os registros"
+                const selectMes = document.getElementById('filtro-mes-horas');
+                for (let i = 0; i < selectMes.options.length; i++) {
+                    if (selectMes.options[i].value === 'todos') {
+                        selectMes.selectedIndex = i;
+                        break;
+                    }
+                }
+                
+                // Resetar outros filtros
                 document.getElementById('filtro-tipo-hora').selectedIndex = 0;
+                document.getElementById('filtro-status').selectedIndex = 0;
+                
+                // Aplicar filtros
                 aplicarFiltros();
             });
         }
@@ -12931,14 +12646,18 @@
             const tipoHora = document.getElementById('filtro-tipo-hora').value;
             const statusHora = document.getElementById('filtro-status').value;
             
-            // Filtrar registros
-            const [ano, mes] = mesSelecionado.split('-').map(Number);
+            // Inicializar com todos os registros
+            let registrosFiltrados = [...horasExtrasRegistros];
             
-            // Filtrar por mês
-            let registrosFiltrados = horasExtrasRegistros.filter(registro => {
-                const dataRegistro = new Date(registro.data);
-                return dataRegistro.getFullYear() === ano && dataRegistro.getMonth() + 1 === mes;
-            });
+            // Filtrar por mês (se não for "todos")
+            if (mesSelecionado !== 'todos') {
+                const [ano, mes] = mesSelecionado.split('-').map(Number);
+                
+                registrosFiltrados = registrosFiltrados.filter(registro => {
+                    const dataRegistro = new Date(registro.data);
+                    return dataRegistro.getFullYear() === ano && dataRegistro.getMonth() + 1 === mes;
+                });
+            }
             
             // Filtrar por tipo
             if (tipoHora !== 'todos') {
@@ -12962,57 +12681,26 @@
             renderizarRegistros(registrosFiltrados);
         }
         
-        // Função para carregar dados de exemplo
-        function carregarDadosExemplo() {
-            // Aqui seria substituído pela leitura real do Firestore
-            const hoje = new Date();
-            const anoAtual = hoje.getFullYear();
-            const mesAtual = hoje.getMonth();
-            
-            horasExtrasRegistros = [
-                {
-                    id: '1',
-                    data: new Date(anoAtual, mesAtual, 15).toISOString().split('T')[0],
-                    entrada: '18:00',
-                    saida: '22:00',
-                    horasExtras: 4,
-                    adicionalNoturno: 1,
-                    motivo: 'Fechamento mensal',
-                    valorEstimado: 100,
-                    recebida: true,
-                    dataRecebimento: new Date(anoAtual, mesAtual, 30).toISOString().split('T')[0]
-                },
-                {
-                    id: '2',
-                    data: new Date(anoAtual, mesAtual, 20).toISOString().split('T')[0],
-                    entrada: '08:00',
-                    saida: '20:00',
-                    horasExtras: 8,
-                    adicionalNoturno: 0,
-                    motivo: 'Inventário',
-                    valorEstimado: 160,
-                    recebida: false,
-                    dataRecebimento: null
-                },
-                {
-                    id: '3',
-                    data: new Date(anoAtual, mesAtual, 25).toISOString().split('T')[0],
-                    entrada: '19:00',
-                    saida: '23:30',
-                    horasExtras: 4.5,
-                    adicionalNoturno: 3.5,
-                    motivo: 'Suporte emergencial',
-                    valorEstimado: 120,
-                    recebida: false,
-                    dataRecebimento: null
-                }
-            ];
-            
-            // Renderizar registros
-            renderizarRegistros(horasExtrasRegistros);
-            
-            // Mostrar loading e depois ocultar
-            document.getElementById('horas-extras-loading').style.display = 'none';
+        // Função para carregar dados do Firestore
+        async function carregarDadosFirestore() {
+            try {
+                // Mostrar loading
+                document.getElementById('horas-extras-loading').style.display = 'block';
+                
+                // Aqui seria implementada a leitura real do Firestore
+                // Por enquanto, apenas inicializa um array vazio
+                horasExtrasRegistros = [];
+                
+                // Renderizar registros (mesmo que vazio)
+                renderizarRegistros(horasExtrasRegistros);
+                
+                // Ocultar loading
+                document.getElementById('horas-extras-loading').style.display = 'none';
+            } catch (error) {
+                console.error('Erro ao carregar dados do Firestore:', error);
+                document.getElementById('horas-extras-loading').style.display = 'none';
+                document.getElementById('horas-extras-empty').style.display = 'flex';
+            }
         }
         
         // Função para renderizar registros na tabela e nos cards
@@ -13235,7 +12923,7 @@
         // Função para abrir o modal de nova hora extra
         function abrirModalNovaHoraExtra() {
             console.log('Função abrirModalNovaHoraExtra chamada');
-            const hoje = new Date().toISOString().split('T')[0];
+            const hoje = window.getDataLocalCorrigida ? window.getDataLocalCorrigida() : new Date().toISOString().split('T')[0];
             
             // Verificar se o modal existe
             const modal = document.getElementById('modal');
@@ -13399,9 +13087,13 @@
                 const { horasExtras, adicionalNoturno } = calcularHorasExtrasENoturno(data.entrada, data.saida);
                 const valorEstimado = calcularValorEstimado(horasExtras, adicionalNoturno, data.valorHora);
                 
+                // Garantir que a data está no formato correto
+                const dataCorrigida = window.converterDataParaLocalCorrigida ? 
+                    window.converterDataParaLocalCorrigida(data.data) : data.data;
+                
                 const novoRegistro = {
                     id: `${Date.now()}`, // Gerar um ID único
-                    data: data.data,
+                    data: dataCorrigida,
                     entrada: data.entrada,
                     saida: data.saida,
                     horasExtras,
@@ -13447,6 +13139,10 @@
                 const { horasExtras, adicionalNoturno } = calcularHorasExtrasENoturno(data.entrada, data.saida);
                 const valorEstimado = calcularValorEstimado(horasExtras, adicionalNoturno, data.valorHora);
                 
+                // Garantir que a data está no formato correto
+                const dataCorrigida = window.converterDataParaLocalCorrigida ? 
+                    window.converterDataParaLocalCorrigida(data.data) : data.data;
+                
                 const index = horasExtrasRegistros.findIndex(r => r.id === data.id);
                 if (index === -1) {
                     console.error('Registro não encontrado para atualização:', data.id);
@@ -13456,7 +13152,7 @@
                 
                 horasExtrasRegistros[index] = {
                     ...horasExtrasRegistros[index],
-                    data: data.data,
+                    data: dataCorrigida,
                     entrada: data.entrada,
                     saida: data.saida,
                     horasExtras,
@@ -13516,7 +13212,10 @@
             const horaIndex = horasExtrasRegistros.findIndex(r => r.id === id);
             if (horaIndex >= 0) {
                 horasExtrasRegistros[horaIndex].recebida = true;
-                horasExtrasRegistros[horaIndex].dataRecebimento = new Date().toISOString().split('T')[0];
+                // Usar a função getDataLocalCorrigida para obter a data no fuso horário correto
+                horasExtrasRegistros[horaIndex].dataRecebimento = window.getDataLocalCorrigida ? 
+                    window.getDataLocalCorrigida() : 
+                    new Date().toISOString().split('T')[0];
                 
                 // Verificar se a função showNotification existe
                 if (typeof showNotification === 'function') {
@@ -13627,7 +13326,13 @@
         
         // Função para formatar data
         function formatarData(dataString) {
-            const data = new Date(dataString);
+            if (!dataString) return '';
+            
+            // Adicionar 'T12:00:00' para evitar problemas de fuso horário
+            const dataComHora = dataString.includes('T') ? dataString : dataString + 'T12:00:00';
+            const data = new Date(dataComHora);
+            
+            // Usar o formato brasileiro (dd/mm/yyyy)
             return data.toLocaleDateString('pt-BR');
         }
         

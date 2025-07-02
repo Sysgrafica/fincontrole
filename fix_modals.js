@@ -7,13 +7,48 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Aplicando patch para corrigir IDs dos modais e problemas de data...');
     
+    // Definição de variáveis globais necessárias
+    if (typeof window.valorHoraNormal === 'undefined') {
+        window.valorHoraNormal = 20; // Valor padrão em reais
+    }
+    
+    if (typeof window.valorPercentualHoraExtra === 'undefined') {
+        window.valorPercentualHoraExtra = 50; // 50% de adicional
+    }
+    
+    if (typeof window.valorPercentualNoturno === 'undefined') {
+        window.valorPercentualNoturno = 20; // 20% de adicional
+    }
+    
     // Função para obter a data local corrigida no formato YYYY-MM-DD
     window.getDataLocalCorrigida = function() {
         const data = new Date();
-        const ano = data.getFullYear();
-        const mes = String(data.getMonth() + 1).padStart(2, '0');
-        const dia = String(data.getDate()).padStart(2, '0');
+        // Configurar para o fuso horário de São Paulo/Brasil (GMT-3)
+        const options = { timeZone: 'America/Sao_Paulo' };
+        const dataLocal = new Intl.DateTimeFormat('pt-BR', options).format(data).split('/');
+        const dia = dataLocal[0];
+        const mes = dataLocal[1];
+        const ano = dataLocal[2];
         return `${ano}-${mes}-${dia}`;
+    };
+    
+    // Função para converter uma data para o formato local (Brasil)
+    window.converterDataParaLocalCorrigida = function(data) {
+        if (!data) return '';
+        
+        // Verificar se a data já está no formato correto
+        if (data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Adicionar meio-dia para evitar problemas de fuso horário
+            const dataObj = new Date(data + 'T12:00:00');
+            
+            // Usar o fuso horário de São Paulo/Brasil (GMT-3)
+            const options = { timeZone: 'America/Sao_Paulo' };
+            const dataLocal = new Intl.DateTimeFormat('en-CA', options).format(dataObj);
+            
+            return dataLocal; // Formato YYYY-MM-DD
+        }
+        
+        return data; // Retornar a data original se não estiver no formato esperado
     };
 
     // Sobrescrever todas as chamadas de new Date().toISOString().split('T')[0]
@@ -167,8 +202,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (entradaInput && saidaInput) {
                     const atualizarCalculo = () => {
                         if (entradaInput.value && saidaInput.value) {
-                            const { horasExtras, adicionalNoturno } = calcularHorasExtrasENoturno(entradaInput.value, saidaInput.value);
-                            console.log(`Cálculo: ${horasExtras}h extras, ${adicionalNoturno}h noturno`);
+                            try {
+                                const { horasExtras, adicionalNoturno } = calcularHorasExtrasENoturno(entradaInput.value, saidaInput.value);
+                                console.log(`Cálculo: ${horasExtras}h extras, ${adicionalNoturno}h noturno`);
+                            } catch (error) {
+                                console.error('Erro ao calcular horas:', error);
+                            }
                         }
                     };
                     
@@ -272,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             try {
                 // Calcular horas extras e adicional noturno
-                const { horasExtras, adicionalNoturno } = calcularHorasExtras(data.entrada, data.saida);
+                const { horasExtras, adicionalNoturno } = calcularHorasExtrasENoturno(data.entrada, data.saida);
                 
                 // Calcular valor estimado
                 const valorHora = parseFloat(data.valorHora) || valorHoraNormal;
@@ -339,7 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             try {
                 // Calcular horas extras e adicional noturno
-                const { horasExtras, adicionalNoturno } = calcularHorasExtras(data.entrada, data.saida);
+                const { horasExtras, adicionalNoturno } = calcularHorasExtrasENoturno(data.entrada, data.saida);
                 
                 // Calcular valor estimado
                 const valorHora = parseFloat(data.valorHora) || valorHoraNormal;
@@ -400,6 +439,170 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
     }
+    
+    // Sobrescrever a função marcarHoraExtraComoRecebida para usar a data local corrigida
+    if (typeof window.marcarHoraExtraComoRecebida === 'function') {
+        const originalMarcarFn = window.marcarHoraExtraComoRecebida;
+        
+        window.marcarHoraExtraComoRecebida = function(id) {
+            console.log('Função marcarHoraExtraComoRecebida corrigida chamada', id);
+            
+            try {
+                // Encontrar registro pelo ID
+                const horaIndex = horasExtrasRegistros.findIndex(r => r.id === id);
+                if (horaIndex === -1) {
+                    throw new Error('Registro não encontrado!');
+                }
+                
+                // Atualizar status
+                horasExtrasRegistros[horaIndex].recebida = true;
+                horasExtrasRegistros[horaIndex].dataRecebimento = window.getDataLocalCorrigida();
+                
+                console.log('Registro marcado como recebido:', horasExtrasRegistros[horaIndex]);
+                
+                // Atualizar a visualização
+                setTimeout(() => {
+                    aplicarFiltros();
+                    
+                    // Mostrar notificação
+                    if (typeof showNotification === 'function') {
+                        showNotification('Hora extra marcada como recebida!', 'success');
+                    } else {
+                        alert('Hora extra marcada como recebida!');
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Erro ao marcar hora extra como recebida:', error);
+                alert('Erro ao marcar hora extra como recebida: ' + error.message);
+            }
+        };
+    }
+    
+    // Função para corrigir as datas nos registros existentes
+    function corrigirDatasRegistrosExistentes() {
+        if (typeof window.horasExtrasRegistros !== 'undefined' && Array.isArray(window.horasExtrasRegistros)) {
+            console.log('Corrigindo datas em registros existentes...');
+            
+            let contadorCorrecoes = 0;
+            
+            window.horasExtrasRegistros.forEach((registro, index) => {
+                // Verificar se a data do registro precisa ser corrigida
+                if (registro.data) {
+                    const dataOriginal = registro.data;
+                    const dataCorrigida = window.converterDataParaLocalCorrigida(registro.data);
+                    
+                    if (dataOriginal !== dataCorrigida) {
+                        console.log(`Corrigindo data do registro ${index}: ${dataOriginal} -> ${dataCorrigida}`);
+                        registro.data = dataCorrigida;
+                        contadorCorrecoes++;
+                    }
+                }
+                
+                // Verificar se a data de recebimento precisa ser corrigida
+                if (registro.dataRecebimento) {
+                    const dataOriginal = registro.dataRecebimento;
+                    const dataCorrigida = window.converterDataParaLocalCorrigida(registro.dataRecebimento);
+                    
+                    if (dataOriginal !== dataCorrigida) {
+                        console.log(`Corrigindo data de recebimento do registro ${index}: ${dataOriginal} -> ${dataCorrigida}`);
+                        registro.dataRecebimento = dataCorrigida;
+                        contadorCorrecoes++;
+                    }
+                }
+            });
+            
+            console.log(`Total de datas corrigidas: ${contadorCorrecoes}`);
+            
+            // Atualizar a visualização se necessário
+            if (contadorCorrecoes > 0 && typeof window.aplicarFiltros === 'function') {
+                setTimeout(() => {
+                    window.aplicarFiltros();
+                }, 200);
+            }
+        }
+    }
+    
+    // Executar correção de datas nos registros existentes
+    setTimeout(corrigirDatasRegistrosExistentes, 500);
 
     console.log('Patch aplicado com sucesso!');
+
+    // Funções auxiliares para cálculo de horas extras
+    if (typeof window.calcularHorasExtrasENoturno === 'undefined') {
+        window.calcularHorasExtrasENoturno = function(entrada, saida) {
+            // Converter para minutos desde 00:00
+            const entradaMinutos = window.converterHoraParaMinutos(entrada);
+            const saidaMinutos = window.converterHoraParaMinutos(saida);
+            
+            // Calcular duração total
+            let duracaoTotal;
+            if (saidaMinutos < entradaMinutos) {
+                // Passou da meia-noite
+                duracaoTotal = (24 * 60 - entradaMinutos) + saidaMinutos;
+            } else {
+                duracaoTotal = saidaMinutos - entradaMinutos;
+            }
+            
+            // Calcular horas extras (considerando jornada normal de 8h)
+            const horasExtras = duracaoTotal / 60;
+            
+            // Calcular adicional noturno (22:00 às 05:00)
+            let adicionalNoturno = 0;
+            const inicioNoturno = 22 * 60; // 22:00
+            const fimNoturno = 5 * 60; // 05:00
+            
+            // Verificar período noturno
+            if (entradaMinutos < fimNoturno || entradaMinutos >= inicioNoturno) {
+                // Entrada em período noturno
+                if (entradaMinutos >= inicioNoturno && saidaMinutos <= 24 * 60) {
+                    // Período totalmente dentro da mesma noite antes da meia-noite
+                    adicionalNoturno = (saidaMinutos - entradaMinutos) / 60;
+                } else if (entradaMinutos >= inicioNoturno && saidaMinutos > 24 * 60) {
+                    // Começa antes da meia-noite e termina no dia seguinte
+                    const minutosAntesMeiaNoite = 24 * 60 - entradaMinutos;
+                    const minutosDepoisMeiaNoite = Math.min(saidaMinutos % (24 * 60), fimNoturno);
+                    adicionalNoturno = (minutosAntesMeiaNoite + minutosDepoisMeiaNoite) / 60;
+                } else if (entradaMinutos < fimNoturno && saidaMinutos <= fimNoturno) {
+                    // Período totalmente após a meia-noite
+                    adicionalNoturno = (saidaMinutos - entradaMinutos) / 60;
+                } else if (entradaMinutos < fimNoturno && saidaMinutos > fimNoturno) {
+                    // Começa depois da meia-noite mas termina após o período noturno
+                    adicionalNoturno = (fimNoturno - entradaMinutos) / 60;
+                }
+            } else if (saidaMinutos > inicioNoturno || saidaMinutos < fimNoturno) {
+                // Entrada fora do período noturno, mas saída no período
+                if (saidaMinutos > inicioNoturno && saidaMinutos <= 24 * 60) {
+                    // Saída antes da meia-noite
+                    adicionalNoturno = (saidaMinutos - inicioNoturno) / 60;
+                } else if (saidaMinutos < fimNoturno) {
+                    // Saída após a meia-noite
+                    adicionalNoturno = ((24 * 60 - inicioNoturno) + saidaMinutos) / 60;
+                }
+            }
+            
+            return {
+                horasExtras: parseFloat(horasExtras.toFixed(2)),
+                adicionalNoturno: parseFloat(adicionalNoturno.toFixed(2))
+            };
+        };
+    }
+    
+    // Função para converter hora (HH:MM) para minutos desde 00:00
+    if (typeof window.converterHoraParaMinutos === 'undefined') {
+        window.converterHoraParaMinutos = function(hora) {
+            const [horas, minutos] = hora.split(':').map(Number);
+            return horas * 60 + minutos;
+        };
+    }
+    
+    // Função para calcular valor estimado
+    if (typeof window.calcularValorEstimado === 'undefined') {
+        window.calcularValorEstimado = function(horasExtras, adicionalNoturno, valorHora) {
+            const valorHoraExtra = valorHora * (1 + valorPercentualHoraExtra / 100);
+            const valorAdicionalNoturno = valorHora * (valorPercentualNoturno / 100);
+            
+            const valorTotal = (horasExtras * valorHoraExtra) + (adicionalNoturno * valorAdicionalNoturno);
+            return parseFloat(valorTotal.toFixed(2));
+        };
+    }
 }); 
