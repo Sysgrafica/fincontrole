@@ -1,0 +1,13 @@
+:root {
+    --primary-color: #1e40af;
+    --secondary-color: #10b981;
+    --danger-color: #ef4444;
+    --text-color: #1e293b;
+    --subtle-text-color: #64748b;
+    --border-color: #e2e8f0;
+    --surface-color: #ffffff;
+    --background-color: #f1f5f9;
+    --shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --border-radius: 8px;
+}
+/* ... (restante do CSS dos blocos <style> extraídos) ... */ 
