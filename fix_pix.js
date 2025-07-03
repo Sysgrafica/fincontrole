@@ -7,35 +7,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Módulo de correção de gastos PIX carregado');
     
-    // Adicionar opção no menu de configurações ou em outro local apropriado
-    function adicionarBotaoCorrecaoPix() {
-        const configSections = document.querySelectorAll('.config-section');
-        if (configSections.length > 0) {
-            const lastSection = configSections[configSections.length - 1];
-            
-            // Criar nova seção de ferramentas de manutenção
-            const manutencaoSection = document.createElement('div');
-            manutencaoSection.className = 'config-section';
-            manutencaoSection.innerHTML = `
-                <h4><i class="fas fa-tools"></i> Ferramentas de Manutenção</h4>
-                <div class="danger-zone">
-                    <h5><i class="fas fa-exclamation-triangle"></i> Operações de Correção</h5>
-                    <p>Use estas ferramentas apenas quando necessário, para corrigir problemas específicos no sistema.</p>
-                    <button id="btn-corrigir-pix" class="btn btn-danger" style="margin-top: 10px;">
-                        <i class="fas fa-sync"></i> Verificar e Corrigir Gastos PIX
-                    </button>
-                    <small style="display: block; margin-top: 10px;">
-                        Esta ferramenta verificará todos os gastos via PIX, Débito ou Transferência e garantirá que os saldos bancários estejam corretamente atualizados.
-                    </small>
-                </div>
-            `;
-            
-            lastSection.parentNode.insertBefore(manutencaoSection, lastSection.nextSibling);
-            
-            // Adicionar listener ao botão
-            document.getElementById('btn-corrigir-pix').addEventListener('click', verificarECorrigirGastosPix);
-        }
-    }
+    // Função removida - Não adicionar mais botão de correção PIX
     
     // Função principal para verificar e corrigir gastos PIX
     async function verificarECorrigirGastosPix() {
@@ -205,15 +177,5 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Adicionar o botão na página de configurações
-    if (window.location.hash === '#configuracoes') {
-        adicionarBotaoCorrecaoPix();
-    } else {
-        // Monitorar mudanças de hash para adicionar o botão quando o usuário navegar para configurações
-        window.addEventListener('hashchange', () => {
-            if (window.location.hash === '#configuracoes') {
-                setTimeout(adicionarBotaoCorrecaoPix, 500);
-            }
-        });
-    }
+    // Função para adicionar botão removida
 }); 
