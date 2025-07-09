@@ -21,19 +21,45 @@ async function criarGastoParcelado(dadosGasto) {
         
         console.log(`Criando gasto parcelado: ${numerosParcelas}x de R$ ${valorParcela.toFixed(2)} = R$ ${valorTotal}`);
         
+        // Buscar dados do cartão para calcular vencimentos corretos
+        const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', dadosGasto.cartaoId);
+        const cartaoDoc = await getDoc(cartaoRef);
+        
+        let diaFechamento = 5;
+        let diaVencimento = 10;
+        
+        if (cartaoDoc.exists()) {
+            const cartaoData = cartaoDoc.data();
+            diaFechamento = parseInt(cartaoData.fechamento) || diaFechamento;
+            diaVencimento = parseInt(cartaoData.vencimento) || diaVencimento;
+        }
+        
         // Criar cada parcela sequencialmente
         for (let i = 0; i < numerosParcelas; i++) {
-            // Calcular data da parcela (adicionar meses)
+            // Calcular data da parcela
             const dataParcela = new Date(dataBase);
-            dataParcela.setMonth(dataParcela.getMonth() + i);
+            dataParcela.setMonth(dataBase.getMonth() + i);
+            
+            // Calcular o mês da fatura baseado na data de compra e fechamento
+            let mesFatura = dataParcela.getMonth() + 1;
+            let anoFatura = dataParcela.getFullYear();
+            
+            // Se a compra foi após o fechamento, vai para a fatura do próximo mês
+            if (dataParcela.getDate() > diaFechamento) {
+                mesFatura = mesFatura + 1;
+                if (mesFatura > 12) {
+                    mesFatura = 1;
+                    anoFatura = anoFatura + 1;
+                }
+            }
             
             const dadosParcela = {
-                descricao: dadosGasto.descricao,
+                descricao: `${dadosGasto.descricao} (${i + 1}/${numerosParcelas})`,
                 categoria: dadosGasto.categoria,
-                valor: parseFloat(valorParcela.toFixed(2)), // Valor da parcela, não total
+                valor: parseFloat(valorParcela.toFixed(2)), // Valor individual da parcela
                 data: dataParcela.toISOString().split('T')[0],
-                metodoPagamento: `${dadosGasto.metodoPagamento} - Parcela ${i + 1}/${numerosParcelas}`,
-                observacao: `${dadosGasto.observacao || ''} - Parcela ${i + 1}/${numerosParcelas}`.trim(),
+                metodoPagamento: `Cartão de Crédito`,
+                observacao: `${dadosGasto.observacao || ''} - Parcela ${i + 1}/${numerosParcelas} do valor total R$ ${valorTotal.toFixed(2)}`.trim(),
                 parcelaAtual: i + 1,
                 totalParcelas: numerosParcelas,
                 grupoParcelasId: grupoParcelasId,
@@ -42,6 +68,9 @@ async function criarGastoParcelado(dadosGasto) {
                 cartaoId: dadosGasto.cartaoId,
                 status: 'Pago',
                 pago: true,
+                parcela: `${i + 1}/${numerosParcelas}`,
+                valorTotal: valorTotal.toString(),
+                numeroParcela: i + 1,
                 criadoEm: serverTimestamp()
             };
             
@@ -49,11 +78,13 @@ async function criarGastoParcelado(dadosGasto) {
             const gastosRef = collection(db, 'users', currentUser.uid, 'gastos');
             const gastoDoc = await addDoc(gastosRef, dadosParcela);
             
-            // Integrar apenas o valor da parcela com a fatura
+            // Integrar apenas o valor da parcela com a fatura do mês correto
             if (dadosGasto.cartaoId) {
                 await integrarParcelaComFatura({
                     ...dadosParcela,
-                    gastoId: gastoDoc.id
+                    gastoId: gastoDoc.id,
+                    mesFatura: mesFatura,
+                    anoFatura: anoFatura
                 }, dadosGasto.cartaoId);
             }
         }
@@ -74,22 +105,9 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
     if (!cartaoId) return;
     
     try {
-        // Buscar cartão
-        const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
-        const cartaoDoc = await getDoc(cartaoRef);
-        
-        if (!cartaoDoc.exists()) {
-            console.error('Cartão não encontrado:', cartaoId);
-            return;
-        }
-        
-        const cartaoData = cartaoDoc.data();
-        const diaVencimento = cartaoData.vencimento || cartaoData.diaVencimento || 10;
-        
-        // Calcular período da fatura para esta parcela
-        const dataParcela = new Date(dadosParcela.data);
-        const anoFatura = dataParcela.getFullYear();
-        const mesFatura = dataParcela.getMonth() + 1;
+        // Usar o mês e ano calculados na função anterior
+        const mesFatura = dadosParcela.mesFatura;
+        const anoFatura = dadosParcela.anoFatura;
         
         // Criar ID da fatura no formato correto
         const faturaId = `${anoFatura}-${String(mesFatura).padStart(2, '0')}`;
@@ -97,6 +115,8 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
         
         const faturaDoc = await getDoc(faturaRef);
         const valorParcela = parseFloat(dadosParcela.valor);
+        
+        console.log(`Integrando parcela ${dadosParcela.parcelaAtual}/${dadosParcela.totalParcelas} de R$ ${valorParcela.toFixed(2)} na fatura ${faturaId}`);
         
         if (faturaDoc.exists()) {
             // Atualizar fatura existente - somar apenas o valor da parcela
@@ -111,9 +131,10 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
                 descricao: dadosParcela.descricao,
                 categoria: dadosParcela.categoria,
                 data: dadosParcela.data,
-                parcela: `${dadosParcela.parcelaAtual}/${dadosParcela.totalParcelas}`,
+                parcela: dadosParcela.parcela,
                 isParcelado: true,
-                grupoParcelasId: dadosParcela.grupoParcelasId
+                grupoParcelasId: dadosParcela.grupoParcelasId,
+                valorOriginal: dadosParcela.valorOriginal
             };
             
             await updateDoc(faturaRef, {
@@ -123,6 +144,15 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
             });
         } else {
             // Criar nova fatura com apenas o valor da parcela
+            const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
+            const cartaoDoc = await getDoc(cartaoRef);
+            
+            let diaVencimento = 10;
+            if (cartaoDoc.exists()) {
+                const cartaoData = cartaoDoc.data();
+                diaVencimento = parseInt(cartaoData.vencimento) || diaVencimento;
+            }
+            
             const dataVencimento = new Date(anoFatura, mesFatura - 1, diaVencimento);
             
             const gastosFatura = {};
@@ -131,9 +161,10 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
                 descricao: dadosParcela.descricao,
                 categoria: dadosParcela.categoria,
                 data: dadosParcela.data,
-                parcela: `${dadosParcela.parcelaAtual}/${dadosParcela.totalParcelas}`,
+                parcela: dadosParcela.parcela,
                 isParcelado: true,
-                grupoParcelasId: dadosParcela.grupoParcelasId
+                grupoParcelasId: dadosParcela.grupoParcelasId,
+                valorOriginal: dadosParcela.valorOriginal
             };
             
             await setDoc(faturaRef, {
@@ -142,6 +173,7 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
                 ano: anoFatura,
                 dataVencimento: dataVencimento,
                 status: 'Aberta',
+                pago: false,
                 gastos: gastosFatura,
                 criadoEm: serverTimestamp(),
                 ultimaAtualizacao: serverTimestamp()
@@ -196,13 +228,13 @@ function exibirDetalhesParcelamento(gasto) {
     
     const parcela = gasto.parcelaAtual || 1;
     const total = gasto.totalParcelas || 1;
-    const valorOriginal = gasto.valorOriginal || gasto.valor;
+    const valorOriginal = gasto.valorOriginal || parseFloat(gasto.valorTotal || 0);
     
     return `
         <div class="parcelamento-info">
             <small class="text-info">
                 <i class="fas fa-credit-card"></i>
-                Parcela ${parcela}/${total} de R$ ${parseFloat(valorOriginal).toFixed(2)}
+                Parcela ${parcela}/${total} de R$ ${valorOriginal.toFixed(2)}
             </small>
         </div>
     `;

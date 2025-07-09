@@ -59,6 +59,18 @@ function abrirModalNovoLancamentoCartao(cartaoId, nomeCartao) {
                     <option value="10">10x sem juros</option>
                     <option value="11">11x sem juros</option>
                     <option value="12">12x sem juros</option>
+                    <option value="13">13x sem juros</option>
+                    <option value="14">14x sem juros</option>
+                    <option value="15">15x sem juros</option>
+                    <option value="16">16x sem juros</option>
+                    <option value="17">17x sem juros</option>
+                    <option value="18">18x sem juros</option>
+                    <option value="19">19x sem juros</option>
+                    <option value="20">20x sem juros</option>
+                    <option value="21">21x sem juros</option>
+                    <option value="22">22x sem juros</option>
+                    <option value="23">23x sem juros</option>
+                    <option value="24">24x sem juros</option>
                 </select>
             </div>
             
@@ -155,7 +167,7 @@ async function processarLancamentoCartao(dadosForm) {
             data: dadosForm.data,
             observacao: dadosForm.observacao || '',
             cartaoId: dadosForm.cartaoId,
-            metodoPagamento: `Cartão de Crédito - ${cartaoData.nome}`,
+            metodoPagamento: `Cartão de Crédito`,
             numeroParcelas: numeroParcelas
         };
         
@@ -170,8 +182,8 @@ async function processarLancamentoCartao(dadosForm) {
         closeModal();
         
         // Atualizar a página de cartões se estiver aberta
-        if (typeof carregarCartoes === 'function') {
-            carregarCartoes();
+        if (typeof loadCartoesData === 'function') {
+            loadCartoesData();
         }
         
     } catch (error) {
@@ -183,9 +195,37 @@ async function processarLancamentoCartao(dadosForm) {
 // Função para criar gasto único no cartão
 async function criarGastoUnicoCartao(dadosGasto) {
     try {
+        // Buscar dados do cartão para calcular a fatura correta
+        const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', dadosGasto.cartaoId);
+        const cartaoDoc = await getDoc(cartaoRef);
+        
+        let diaFechamento = 5;
+        let diaVencimento = 10;
+        
+        if (cartaoDoc.exists()) {
+            const cartaoData = cartaoDoc.data();
+            diaFechamento = parseInt(cartaoData.fechamento) || diaFechamento;
+            diaVencimento = parseInt(cartaoData.vencimento) || diaVencimento;
+        }
+        
+        // Calcular o mês da fatura baseado na data de compra e fechamento
+        const dataCompra = new Date(dadosGasto.data);
+        let mesFatura = dataCompra.getMonth() + 1;
+        let anoFatura = dataCompra.getFullYear();
+        
+        // Se a compra foi após o fechamento, vai para a fatura do próximo mês
+        if (dataCompra.getDate() > diaFechamento) {
+            mesFatura = mesFatura + 1;
+            if (mesFatura > 12) {
+                mesFatura = 1;
+                anoFatura = anoFatura + 1;
+            }
+        }
+        
         const dadosCompletos = {
             ...dadosGasto,
             isParcelado: false,
+            parcela: 'À vista',
             status: 'Pago',
             pago: true,
             criadoEm: serverTimestamp()
@@ -198,7 +238,9 @@ async function criarGastoUnicoCartao(dadosGasto) {
         // Integrar com fatura
         await integrarGastoUnicoComFatura({
             ...dadosCompletos,
-            gastoId: gastoDoc.id
+            gastoId: gastoDoc.id,
+            mesFatura: mesFatura,
+            anoFatura: anoFatura
         }, dadosGasto.cartaoId);
         
         showNotification('Lançamento cadastrado com sucesso!', 'success');
@@ -212,25 +254,17 @@ async function criarGastoUnicoCartao(dadosGasto) {
 // Função para integrar gasto único com fatura
 async function integrarGastoUnicoComFatura(dadosGasto, cartaoId) {
     try {
-        // Buscar cartão
-        const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
-        const cartaoDoc = await getDoc(cartaoRef);
-        
-        if (!cartaoDoc.exists()) return;
-        
-        const cartaoData = cartaoDoc.data();
-        const diaVencimento = cartaoData.vencimento || cartaoData.diaVencimento || 10;
-        
-        // Calcular período da fatura
-        const dataGasto = new Date(dadosGasto.data);
-        const anoFatura = dataGasto.getFullYear();
-        const mesFatura = dataGasto.getMonth() + 1;
+        // Usar o mês e ano calculados na função anterior
+        const mesFatura = dadosGasto.mesFatura;
+        const anoFatura = dadosGasto.anoFatura;
         
         const faturaId = `${anoFatura}-${String(mesFatura).padStart(2, '0')}`;
         const faturaRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId, 'faturas', faturaId);
         
         const faturaDoc = await getDoc(faturaRef);
         const valorGasto = parseFloat(dadosGasto.valor);
+        
+        console.log(`Integrando gasto único de R$ ${valorGasto.toFixed(2)} na fatura ${faturaId}`);
         
         if (faturaDoc.exists()) {
             // Atualizar fatura existente
@@ -255,6 +289,15 @@ async function integrarGastoUnicoComFatura(dadosGasto, cartaoId) {
             });
         } else {
             // Criar nova fatura
+            const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
+            const cartaoDoc = await getDoc(cartaoRef);
+            
+            let diaVencimento = 10;
+            if (cartaoDoc.exists()) {
+                const cartaoData = cartaoDoc.data();
+                diaVencimento = parseInt(cartaoData.vencimento) || diaVencimento;
+            }
+            
             const dataVencimento = new Date(anoFatura, mesFatura - 1, diaVencimento);
             
             const gastosFatura = {};
@@ -273,6 +316,7 @@ async function integrarGastoUnicoComFatura(dadosGasto, cartaoId) {
                 ano: anoFatura,
                 dataVencimento: dataVencimento,
                 status: 'Aberta',
+                pago: false,
                 gastos: gastosFatura,
                 criadoEm: serverTimestamp(),
                 ultimaAtualizacao: serverTimestamp()
