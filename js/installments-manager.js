@@ -19,8 +19,9 @@ async function criarGastoParcelado(dadosGasto) {
         // ID único para o grupo de parcelas
         const grupoParcelasId = `parcelas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        const parcelasPromises = [];
+        console.log(`Criando gasto parcelado: ${numerosParcelas}x de R$ ${valorParcela.toFixed(2)} = R$ ${valorTotal}`);
         
+        // Criar cada parcela sequencialmente para garantir que o gastoId esteja disponível
         for (let i = 0; i < numerosParcelas; i++) {
             // Calcular data da parcela (adicionar meses)
             const dataParcela = new Date(dataBase);
@@ -30,7 +31,7 @@ async function criarGastoParcelado(dadosGasto) {
                 ...dadosGasto,
                 valor: parseFloat(valorParcela.toFixed(2)),
                 data: dataParcela.toISOString().split('T')[0],
-                observacao: `${dadosGasto.observacao || ''} - Parcela ${i + 1}/${numerosParcelas}`.trim(),
+                observacao: `${dadosGasto.observacao || dadosGasto.descricao || ''} - Parcela ${i + 1}/${numerosParcelas}`.trim(),
                 parcelaAtual: i + 1,
                 totalParcelas: numerosParcelas,
                 grupoParcelasId: grupoParcelasId,
@@ -40,16 +41,19 @@ async function criarGastoParcelado(dadosGasto) {
                 criadoEm: serverTimestamp()
             };
             
-            // Se for cartão de crédito, integrar com fatura
-            if (dadosGasto.metodoPagamento && dadosGasto.metodoPagamento.includes('Cartão')) {
-                await integrarParcelaComFatura(dadosParcela, dadosGasto.cartaoId);
-            }
-            
+            // Criar o gasto primeiro para obter o ID
             const gastosRef = collection(db, 'users', currentUser.uid, 'gastos');
-            parcelasPromises.push(addDoc(gastosRef, dadosParcela));
+            const gastoDoc = await addDoc(gastosRef, dadosParcela);
+            
+            // Agora integrar com a fatura usando o ID do gasto
+            if (dadosGasto.metodoPagamento && dadosGasto.metodoPagamento.includes('Cartão') && dadosGasto.cartaoId) {
+                const dadosParcelaComId = {
+                    ...dadosParcela,
+                    gastoId: gastoDoc.id
+                };
+                await integrarParcelaComFatura(dadosParcelaComId, dadosGasto.cartaoId);
+            }
         }
-        
-        await Promise.all(parcelasPromises);
         
         showNotification(`Gasto parcelado em ${numerosParcelas}x criado com sucesso!`, 'success');
         
@@ -71,10 +75,13 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
         const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
         const cartaoDoc = await getDoc(cartaoRef);
         
-        if (!cartaoDoc.exists()) return;
+        if (!cartaoDoc.exists()) {
+            console.error('Cartão não encontrado:', cartaoId);
+            return;
+        }
         
         const cartaoData = cartaoDoc.data();
-        const diaVencimento = cartaoData.diaVencimento || 10;
+        const diaVencimento = cartaoData.vencimento || cartaoData.diaVencimento || 10;
         
         // Calcular período da fatura para esta parcela
         const dataParcela = new Date(dadosParcela.data);
@@ -93,13 +100,24 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
             const valorAtual = parseFloat(faturaAtual.valorTotal || faturaAtual.valor || 0);
             const novoValor = valorAtual + parseFloat(dadosParcela.valor);
             
+            // Obter gastos existentes na fatura
+            const gastosExistentes = faturaAtual.gastos || {};
+            
+            // Adicionar este gasto à lista de gastos da fatura
+            gastosExistentes[dadosParcela.gastoId] = true;
+            
             await updateDoc(faturaRef, {
                 valorTotal: novoValor,
+                gastos: gastosExistentes,
                 ultimaAtualizacao: serverTimestamp()
             });
         } else {
             // Criar nova fatura com apenas o valor da parcela
-            const dataVencimento = new Date(anoFatura, mesFatura, diaVencimento);
+            const dataVencimento = new Date(anoFatura, mesFatura - 1, diaVencimento);
+            
+            // Criar objeto de gastos para a fatura
+            const gastosFatura = {};
+            gastosFatura[dadosParcela.gastoId] = true;
             
             await setDoc(faturaRef, {
                 valorTotal: parseFloat(dadosParcela.valor),
@@ -107,9 +125,12 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
                 ano: anoFatura,
                 dataVencimento: dataVencimento,
                 status: 'Aberta',
+                gastos: gastosFatura,
                 ultimaAtualizacao: serverTimestamp()
             });
         }
+        
+        console.log(`Parcela de R$ ${dadosParcela.valor} adicionada à fatura ${faturaId} do cartão ${cartaoId}`);
         
     } catch (error) {
         console.error('Erro ao integrar parcela com fatura:', error);

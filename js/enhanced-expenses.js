@@ -84,7 +84,7 @@ async function processarFormularioComParcelamento(formData) {
     const metodoPagamento = formData.get('metodoPagamento');
     
     // Se não for parcelado ou não for cartão de crédito, usar fluxo normal
-    if (numeroParcelas <= 1 || !metodoPagamento.includes('Cartão') || !metodoPagamento.includes('Crédito')) {
+    if (numeroParcelas <= 1 || !metodoPagamento || !metodoPagamento.includes('Cartão') || !metodoPagamento.includes('Crédito')) {
         return await adicionarGastoNormal(formData);
     }
     
@@ -95,9 +95,33 @@ async function processarFormularioComParcelamento(formData) {
     }
     
     // Extrair ID do cartão do método de pagamento
-    // Formato esperado: "Cartão de Crédito - Nome do Cartão (ID)"
+    // Procurar pelo ID do cartão no final da string entre parênteses
     const cartaoMatch = metodoPagamento.match(/\(([^)]+)\)$/);
-    dadosGasto.cartaoId = cartaoMatch ? cartaoMatch[1] : null;
+    
+    if (!cartaoMatch) {
+        // Se não encontrou o formato esperado, tentar extrair de outra forma
+        // Buscar cartões do usuário para encontrar o ID
+        const cartoesRef = collection(db, 'users', currentUser.uid, 'cartoes');
+        const cartoesSnapshot = await getDocs(cartoesRef);
+        
+        let cartaoEncontrado = null;
+        cartoesSnapshot.forEach(doc => {
+            const cartao = doc.data();
+            if (metodoPagamento.includes(cartao.nome)) {
+                cartaoEncontrado = doc.id;
+            }
+        });
+        
+        dadosGasto.cartaoId = cartaoEncontrado;
+    } else {
+        dadosGasto.cartaoId = cartaoMatch[1];
+    }
+    
+    // Verificar se encontrou o cartão
+    if (!dadosGasto.cartaoId) {
+        showNotification('Erro: Não foi possível identificar o cartão de crédito.', 'error');
+        return;
+    }
     
     // Criar gasto parcelado
     return await criarGastoParcelado(dadosGasto);
@@ -114,9 +138,30 @@ async function adicionarGastoNormal(formData) {
         const dadosGasto = Object.fromEntries(formData.entries());
         dadosGasto.criadoEm = serverTimestamp();
         dadosGasto.pago = dadosGasto.metodoPagamento !== 'Pendente';
+        dadosGasto.isParcelado = false;
         
-        const gastosRef = collection(db, 'users', currentUser.uid, 'gastos');
-        await addDoc(gastosRef, dadosGasto);
+        // Se for cartão de crédito, extrair ID do cartão e integrar com fatura
+        if (dadosGasto.metodoPagamento && dadosGasto.metodoPagamento.includes('Cartão') && dadosGasto.metodoPagamento.includes('Crédito')) {
+            const cartaoMatch = dadosGasto.metodoPagamento.match(/\(([^)]+)\)$/);
+            if (cartaoMatch) {
+                dadosGasto.cartaoId = cartaoMatch[1];
+                
+                // Integrar com fatura do cartão
+                const gastoDoc = await addDoc(collection(db, 'users', currentUser.uid, 'gastos'), dadosGasto);
+                
+                const dadosParaFatura = {
+                    ...dadosGasto,
+                    gastoId: gastoDoc.id
+                };
+                await integrarParcelaComFatura(dadosParaFatura, dadosGasto.cartaoId);
+            } else {
+                // Se não conseguiu extrair o ID, adicionar normalmente
+                await addDoc(collection(db, 'users', currentUser.uid, 'gastos'), dadosGasto);
+            }
+        } else {
+            // Para outros tipos de pagamento, adicionar normalmente
+            await addDoc(collection(db, 'users', currentUser.uid, 'gastos'), dadosGasto);
+        }
         
         showNotification('Gasto adicionado com sucesso!', 'success');
         
