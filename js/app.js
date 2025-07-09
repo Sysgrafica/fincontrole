@@ -101,7 +101,7 @@ function transformarTabelaEmCards() {
         
         card.appendChild(dataRow);
         
-        // Parcelas
+        // Parcelas - Melhorar exibição
         const parcelasRow = document.createElement('div');
         parcelasRow.className = 'card-row';
         
@@ -115,9 +115,16 @@ function transformarTabelaEmCards() {
         
         const parcelasValue = document.createElement('div');
         parcelasValue.className = 'data-value';
-        parcelasValue.textContent = cells[3].textContent.trim();
-        parcelasCol.appendChild(parcelasValue);
+        const parcelasText = cells[3].textContent.trim();
         
+        // Se for parcelamento, destacar visualmente
+        if (parcelasText !== '-' && parcelasText !== '1x') {
+            parcelasValue.innerHTML = `<span class="badge badge-info">${parcelasText}</span>`;
+        } else {
+            parcelasValue.textContent = parcelasText;
+        }
+        
+        parcelasCol.appendChild(parcelasValue);
         parcelasRow.appendChild(parcelasCol);
         card.appendChild(parcelasRow);
         
@@ -219,6 +226,18 @@ function transformarGastosParaCards() {
         dataItem.appendChild(dataLabel);
         dataItem.appendChild(dataValue);
         info.appendChild(dataItem);
+        
+        // Verificar se há informações de parcelamento na observação
+        const observacao = cells[5] ? cells[5].textContent.trim() : '';
+        if (observacao.includes('Parcela') && observacao.includes('/')) {
+            const parcelamentoInfo = document.createElement('div');
+            parcelamentoInfo.className = 'gasto-card-parcelamento';
+            parcelamentoInfo.innerHTML = `
+                <i class="fas fa-credit-card text-info"></i>
+                <small class="text-info">${observacao}</small>
+            `;
+            info.appendChild(parcelamentoInfo);
+        }
         
         // Categoria
         const categoriaItem = document.createElement('div');
