@@ -259,7 +259,7 @@ async function integrarGastoUnicoComFatura(dadosGasto, cartaoId) {
         const anoFatura = dadosGasto.anoFatura;
         
         const faturaId = `${anoFatura}-${String(mesFatura).padStart(2, '0')}`;
-        const faturaRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId, 'faturas', faturaId);
+        const faturaRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartaoId, 'faturas', faturaId);
         
         const faturaDoc = await getDoc(faturaRef);
         const valorGasto = parseFloat(dadosGasto.valor);
@@ -289,7 +289,7 @@ async function integrarGastoUnicoComFatura(dadosGasto, cartaoId) {
             });
         } else {
             // Criar nova fatura
-            const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
+            const cartaoRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
             const cartaoDoc = await getDoc(cartaoRef);
             
             let diaVencimento = 10;

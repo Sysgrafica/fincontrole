@@ -150,6 +150,105 @@ async function adicionarGastoNormal(formData) {
     }
 }
 
+// Função para criar gasto parcelado
+async function criarGastoParcelado(dadosGasto) {
+    try {
+        if (!currentUser) return;
+
+        const numerosParcelas = parseInt(dadosGasto.numeroParcelas) || 1;
+        const valorTotal = parseFloat(dadosGasto.valor);
+        const valorParcela = valorTotal / numerosParcelas;
+
+        // Data base para as parcelas
+        const dataBase = new Date(dadosGasto.data);
+
+        // ID único para o grupo de parcelas
+        const grupoParcelasId = `parcelas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        console.log(`Criando gasto parcelado: ${numerosParcelas}x de R$ ${valorParcela.toFixed(2)} = R$ ${valorTotal}`);
+
+        // Buscar dados do cartão para calcular vencimentos corretos
+        const cartaoRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', dadosGasto.cartaoId);
+        const cartaoDoc = await getDoc(cartaoRef);
+
+        let diaFechamento = 5;
+        let diaVencimento = 10;
+
+        if (cartaoDoc.exists()) {
+            const cartaoData = cartaoDoc.data();
+            diaFechamento = parseInt(cartaoData.fechamento) || diaFechamento;
+            diaVencimento = parseInt(cartaoData.vencimento) || diaVencimento;
+        }
+
+        // Criar cada parcela sequencialmente
+        for (let i = 0; i < numerosParcelas; i++) {
+            // Calcular data da parcela
+            const dataParcela = new Date(dataBase);
+            dataParcela.setMonth(dataBase.getMonth() + i);
+
+            // Calcular o mês da fatura baseado na data de compra e fechamento
+            let mesFatura = dataParcela.getMonth() + 1;
+            let anoFatura = dataParcela.getFullYear();
+
+            // Se a compra foi após o fechamento, vai para a fatura do próximo mês
+            if (dataParcela.getDate() > diaFechamento) {
+                mesFatura = mesFatura + 1;
+                if (mesFatura > 12) {
+                    mesFatura = 1;
+                    anoFatura = anoFatura + 1;
+                }
+            }
+
+            const dadosParcela = {
+                descricao: `${dadosGasto.descricao} (${i + 1}/${numerosParcelas})`,
+                categoria: dadosGasto.categoria,
+                valor: parseFloat(valorParcela.toFixed(2)), // Valor individual da parcela
+                data: dataParcela.toISOString().split('T')[0],
+                metodoPagamento: `Cartão de Crédito`,
+                observacao: `${dadosGasto.observacao || ''} - Parcela ${i + 1}/${numerosParcelas} do valor total R$ ${valorTotal.toFixed(2)}`.trim(),
+                parcelaAtual: i + 1,
+                totalParcelas: numerosParcelas,
+                grupoParcelasId: grupoParcelasId,
+                valorOriginal: valorTotal,
+                isParcelado: true,
+                cartaoId: dadosGasto.cartaoId,
+                status: 'Pago',
+                pago: true,
+                parcela: `${i + 1}/${numerosParcelas}`,
+                valorTotal: valorTotal.toString(),
+                numeroParcela: i + 1,
+                criadoEm: serverTimestamp()
+            };
+
+            // Criar o gasto primeiro para obter o ID
+            const gastosRef = collection(db, 'users', currentUser.uid, 'gastos');
+            const gastoDoc = await addDoc(gastosRef, dadosParcela);
+
+            // Integrar apenas o valor da parcela com a fatura do mês correto
+            if (dadosGasto.cartaoId && window.integrarParcelaComFatura) {
+                await window.integrarParcelaComFatura({
+                    ...dadosParcela,
+                    gastoId: gastoDoc.id,
+                    mesFatura: mesFatura,
+                    anoFatura: anoFatura
+                }, dadosGasto.cartaoId);
+            }
+        }
+
+        showNotification(`Gasto parcelado em ${numerosParcelas}x criado com sucesso!`, 'success');
+
+        return grupoParcelasId;
+
+    } catch (error) {
+        console.error('Erro ao criar gasto parcelado:', error);
+        showNotification('Erro ao criar gasto parcelado', 'error');
+        throw error;
+    }
+}
+
+// Expor função globalmente para compatibilidade
+window.criarGastoParcelado = criarGastoParcelado;
+
 // Expor funções globalmente
 window.adicionarCamposParcelamento = adicionarCamposParcelamento;
 window.processarFormularioComParcelamento = processarFormularioComParcelamento;

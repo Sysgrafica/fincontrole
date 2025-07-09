@@ -111,7 +111,7 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
         
         // Criar ID da fatura no formato correto
         const faturaId = `${anoFatura}-${String(mesFatura).padStart(2, '0')}`;
-        const faturaRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId, 'faturas', faturaId);
+        const faturaRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartaoId, 'faturas', faturaId);
         
         const faturaDoc = await getDoc(faturaRef);
         const valorParcela = parseFloat(dadosParcela.valor);
@@ -144,7 +144,7 @@ async function integrarParcelaComFatura(dadosParcela, cartaoId) {
             });
         } else {
             // Criar nova fatura com apenas o valor da parcela
-            const cartaoRef = doc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
+            const cartaoRef = firestoreDoc(db, 'users', currentUser.uid, 'cartoes', cartaoId);
             const cartaoDoc = await getDoc(cartaoRef);
             
             let diaVencimento = 10;
