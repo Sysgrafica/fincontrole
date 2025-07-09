@@ -1,108 +1,73 @@
 # FinControle - Sistema de Controle Financeiro Pessoal
 
-Sistema de controle financeiro pessoal com tema Argon Dashboard 2 Tailwind.
+Um sistema completo para gerenciar suas finanças pessoais, incluindo controle de gastos, receitas, cartões de crédito e contas bancárias.
 
-## Sobre o Tema
+## 🚀 Como usar no Replit
 
-O sistema utiliza o tema Argon Dashboard 2 Tailwind, um tema premium desenvolvido pela Creative Tim. O tema foi adaptado para uso no FinControle, proporcionando uma interface moderna e responsiva.
+1. **Executar o projeto**: Clique no botão "Run" no topo da tela
+2. **Acessar**: O sistema será aberto automaticamente no navegador
+3. **Fazer login**: Use seu email/senha ou entre com Google
 
-### Características do Tema
+## 📋 Funcionalidades
 
-- Design moderno e elegante
-- Interface responsiva
-- Componentes pré-estilizados
-- Paleta de cores harmoniosa
-- Efeitos visuais sutis e agradáveis
+- ✅ **Dashboard**: Visão geral das finanças
+- ✅ **Gastos**: Registro e controle de despesas
+- ✅ **Rendas**: Controle de receitas e ganhos
+- ✅ **Cartões**: Gerenciamento de cartões de crédito e faturas
+- ✅ **Bancos**: Controle de contas bancárias
+- ✅ **Relatórios**: Análises e gráficos financeiros
+- ✅ **Responsive**: Funciona em computador e celular
 
-## Arquivos do Tema
+## 🔧 Configuração
 
-Os arquivos principais do tema são:
+O sistema já está configurado para uso imediato. As configurações do Firebase estão definidas no arquivo `firebase-config.js`.
 
-- `css/argon-dashboard-tailwind.css` - Estilos principais do tema
-- `js/argon-dashboard.js` - Funcionalidades JavaScript do tema
-- `css/style.css` - Estilos personalizados complementares
+### Primeiro Acesso
 
-## Como Usar
+1. Clique em "Run" para iniciar o sistema
+2. Faça seu cadastro na tela inicial
+3. Comece adicionando seus bancos e cartões
+4. Registre suas receitas e despesas
 
-O tema já está integrado ao sistema. Para utilizar componentes específicos do tema, consulte as classes CSS disponíveis no arquivo `css/argon-dashboard-tailwind.css`.
+## 📱 Uso Mobile
 
-### Classes Úteis
+O sistema é totalmente responsivo e se adapta automaticamente para dispositivos móveis, mudando de tabelas para cards quando necessário.
 
-- `.container` - Container responsivo
-- `.card` - Cartões com sombra e bordas arredondadas
-- `.btn`, `.btn-primary`, `.btn-secondary` - Botões estilizados
-- `.shadow`, `.shadow-sm`, `.shadow-lg` - Diferentes níveis de sombra
-- `.rounded`, `.rounded-circle` - Bordas arredondadas
+## 🎨 Personalização
 
-## Personalização
-
-Para personalizar o tema, você pode modificar as variáveis CSS no arquivo `css/style.css`:
+Para personalizar cores e tema, edite as variáveis CSS no arquivo `css/style.css`:
 
 ```css
 :root {
     --primary-color: #5e72e4; /* Cor primária */
     --secondary-color: #2dce89; /* Cor secundária */
     --danger-color: #f5365c; /* Cor de perigo */
-    --text-color: #344767; /* Cor de texto */
-    --subtle-text-color: #67748e;
-    --border-color: #e9ecef;
-    --surface-color: #ffffff;
-    --background-color: #f8f9fa;
-    --shadow: 0 7px 14px rgba(50,50,93,.1), 0 3px 6px rgba(0,0,0,.08);
-    --border-radius: 8px;
+    /* ... outras variáveis ... */
 }
 ```
 
-## Créditos
+## 🔒 Segurança
 
-O tema Argon Dashboard 2 Tailwind foi desenvolvido pela [Creative Tim](https://www.creative-tim.com/product/argon-dashboard-tailwind).
+- Autenticação via Firebase Auth
+- Dados armazenados no Firestore
+- Login com Google disponível
+- Dados isolados por usuário
 
-## Licença
+## 📦 Deploy
 
-Este projeto utiliza o tema Argon Dashboard 2 Tailwind sob a licença MIT.
+Para fazer deploy na produção:
 
-## Configuração de Segurança
+1. Vá para a aba "Deploy" no Replit
+2. Clique em "Deploy"
+3. Seu sistema ficará disponível 24/7
 
-### Configuração do Firebase
+## 🆘 Suporte
 
-Para proteger suas chaves de API e credenciais, siga estas etapas:
+Se encontrar algum problema:
+1. Verifique se está logado
+2. Recarregue a página
+3. Limpe o cache do navegador
 
-1. Crie um arquivo chamado `firebase-config.js` na raiz do projeto
-2. Adicione suas configurações do Firebase neste arquivo:
+---
 
-```javascript
-// firebase-config.js
-const firebaseConfig = {
-    apiKey: "SUA_API_KEY_AQUI",
-    authDomain: "seu-projeto.firebaseapp.com",
-    projectId: "seu-projeto",
-    storageBucket: "seu-projeto.appspot.com",
-    messagingSenderId: "seu-messagingSenderId",
-    appId: "seu-appId"
-};
-```
-
-3. **IMPORTANTE**: Este arquivo já está incluído no `.gitignore` para evitar que seja enviado ao repositório. Nunca cometa este arquivo no GitHub.
-
-### Por que isso é importante?
-
-Chaves de API expostas publicamente podem ser utilizadas por terceiros, resultando em:
-- Acesso não autorizado ao seu projeto Firebase
-- Possíveis cobranças financeiras em sua conta
-- Violação de segurança de dados
-
-## Instalação e Uso
-
-1. Clone o repositório
-2. Crie o arquivo `firebase-config.js` como descrito acima
-3. Abra o arquivo `index.html` em seu navegador
-
-## Funcionalidades
-
-- Controle de gastos e receitas
-- Gerenciamento de cartões de crédito e faturas
-- Controle de contas bancárias
-- Dashboard com visão geral das finanças
-- Relatórios e gráficos
-- Gastos fixos organizados por mês
-- Comprovantes de pagamento 
+**Desenvolvido com Firebase + Vanilla JavaScript**
