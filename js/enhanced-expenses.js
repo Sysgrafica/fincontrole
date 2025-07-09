@@ -95,11 +95,9 @@ async function processarFormularioComParcelamento(formData) {
     }
     
     // Extrair ID do cartão do método de pagamento
-    // Procurar pelo ID do cartão no final da string entre parênteses
     const cartaoMatch = metodoPagamento.match(/\(([^)]+)\)$/);
     
     if (!cartaoMatch) {
-        // Se não encontrou o formato esperado, tentar extrair de outra forma
         // Buscar cartões do usuário para encontrar o ID
         const cartoesRef = collection(db, 'users', currentUser.uid, 'cartoes');
         const cartoesSnapshot = await getDocs(cartoesRef);
@@ -122,6 +120,9 @@ async function processarFormularioComParcelamento(formData) {
         showNotification('Erro: Não foi possível identificar o cartão de crédito.', 'error');
         return;
     }
+    
+    // Garantir que o número de parcelas está correto
+    dadosGasto.numeroParcelas = numeroParcelas;
     
     // Criar gasto parcelado
     return await criarGastoParcelado(dadosGasto);
