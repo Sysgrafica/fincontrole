@@ -2883,8 +2883,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (bancos.length === 0) {
                 dashboardBancosEmpty.style.display = 'block';
+                dashboardBancosList.style.display = 'none';
                 return;
             }
+            
+            // Ocultar o estado vazio quando há bancos
+            dashboardBancosEmpty.style.display = 'none';
             
             // Ordena os bancos por saldo (maior para menor)
             bancos.sort((a, b) => parseFloat(b.saldo) - parseFloat(a.saldo));
@@ -3117,8 +3121,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (gastosPendentes.length === 0) {
                 dashboardGastosPendentesLoading.style.display = 'none';
                 dashboardGastosPendentesEmpty.style.display = 'block';
+                dashboardGastosPendentesList.style.display = 'none';
                 return 0;
             }
+            
+            // Ocultar o estado vazio quando há gastos pendentes
+            dashboardGastosPendentesEmpty.style.display = 'none';
             
             // Ordenar gastos por data (mais próximos primeiro)
             gastosPendentes.sort((a, b) => new Date(a.data) - new Date(b.data));
@@ -3256,8 +3264,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (rendas.length === 0) {
                 dashboardRendasLoading.style.display = 'none';
                 dashboardRendasEmpty.style.display = 'block';
+                dashboardRendasList.style.display = 'none';
                 return;
             }
+            
+            // Ocultar o estado vazio quando há rendas
+            dashboardRendasEmpty.style.display = 'none';
             
             // Ordenar rendas por data (mais recentes primeiro)
             rendas.sort((a, b) => new Date(b.data) - new Date(a.data));
@@ -3458,8 +3470,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Se não encontrou nenhuma fatura
             if (todasFaturas.length === 0) {
                 dashboardFaturasLoading.style.display = 'none';
+                document.getElementById('dashboard-faturas-empty').style.display = 'block';
+                document.getElementById('dashboard-faturas-list').style.display = 'none';
                 return;
             }
+            
+            // Ocultar o estado vazio quando há faturas
+            document.getElementById('dashboard-faturas-empty').style.display = 'none';
             
             // 3. Ordena as faturas por nome do cartão (já são apenas do mês atual)
             todasFaturas.sort((a, b) => {
