@@ -1,1 +1,2 @@
-// ... (todo o JS dos blocos <script> internos extraídos do index.html) ... 
+
+// Este arquivo foi removido - funcionalidades movidas para main-app.js

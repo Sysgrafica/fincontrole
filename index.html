@@ -39,6 +39,11 @@
     <script src="fix_modals.js"></script>
     <script src="fix_pix.js"></script>
     
+    <!-- Scripts de parcelamento e gastos -->
+    <script src="js/installments-manager.js"></script>
+    <script src="js/enhanced-expenses.js"></script>
+    <script src="js/credit-card-expenses.js"></script>
+    
     <!-- JavaScript principal da aplicação -->
     <script src="js/main-app.js"></script>
     
@@ -1814,6 +1819,9 @@
 
     
 
+    <!-- Configuração do Firebase -->
+    <script src="firebase-config.js"></script>
+    
     <!-- Firebase SDKs -->
     <script type="module">
         // Importar funções necessárias dos SDKs do Firebase
@@ -1869,10 +1877,11 @@
         */
         
         // Verificar se as configurações do Firebase foram carregadas
-        if (typeof firebaseConfig === 'undefined') {
-            // Configuração de fallback para desenvolvimento local apenas
-            // NÃO inclua chaves reais aqui
-            const firebaseConfig = {
+        if (typeof window.firebaseConfig === 'undefined') {
+            console.error("Arquivo de configuração do Firebase não encontrado! Por favor, configure o arquivo firebase-config.js");
+            alert("ATENÇÃO: Configure suas credenciais do Firebase no arquivo firebase-config.js antes de usar a aplicação!");
+            // Configuração de fallback (NÃO funcionará sem chaves reais)
+            window.firebaseConfig = {
                 apiKey: "INSIRA_SUA_API_KEY_AQUI",
                 authDomain: "fincontrole-70ec4.firebaseapp.com",
                 projectId: "fincontrole-70ec4",
@@ -1880,8 +1889,10 @@
                 messagingSenderId: "250535426531",
                 appId: "1:250535426531:web:6f509f1ee9914a550188d6"
             };
-            console.error("Arquivo de configuração do Firebase não encontrado! Por favor, crie o arquivo firebase-config.js");
         }
+        
+        // Usar a configuração global
+        const firebaseConfig = window.firebaseConfig;
         
         // Inicializa o Firebase
         const app = initializeApp(firebaseConfig);
@@ -2877,8 +2888,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (bancos.length === 0) {
                 dashboardBancosEmpty.style.display = 'block';
+                dashboardBancosList.style.display = 'none';
                 return;
             }
+            
+            // Ocultar o estado vazio quando há bancos
+            dashboardBancosEmpty.style.display = 'none';
             
             // Ordena os bancos por saldo (maior para menor)
             bancos.sort((a, b) => parseFloat(b.saldo) - parseFloat(a.saldo));
@@ -3111,8 +3126,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (gastosPendentes.length === 0) {
                 dashboardGastosPendentesLoading.style.display = 'none';
                 dashboardGastosPendentesEmpty.style.display = 'block';
+                dashboardGastosPendentesList.style.display = 'none';
                 return 0;
             }
+            
+            // Ocultar o estado vazio quando há gastos pendentes
+            dashboardGastosPendentesEmpty.style.display = 'none';
             
             // Ordenar gastos por data (mais próximos primeiro)
             gastosPendentes.sort((a, b) => new Date(a.data) - new Date(b.data));
@@ -3250,8 +3269,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (rendas.length === 0) {
                 dashboardRendasLoading.style.display = 'none';
                 dashboardRendasEmpty.style.display = 'block';
+                dashboardRendasList.style.display = 'none';
                 return;
             }
+            
+            // Ocultar o estado vazio quando há rendas
+            dashboardRendasEmpty.style.display = 'none';
             
             // Ordenar rendas por data (mais recentes primeiro)
             rendas.sort((a, b) => new Date(b.data) - new Date(a.data));
@@ -3452,8 +3475,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Se não encontrou nenhuma fatura
             if (todasFaturas.length === 0) {
                 dashboardFaturasLoading.style.display = 'none';
+                document.getElementById('dashboard-faturas-empty').style.display = 'block';
+                document.getElementById('dashboard-faturas-list').style.display = 'none';
                 return;
             }
+            
+            // Ocultar o estado vazio quando há faturas
+            document.getElementById('dashboard-faturas-empty').style.display = 'none';
             
             // 3. Ordena as faturas por nome do cartão (já são apenas do mês atual)
             todasFaturas.sort((a, b) => {
