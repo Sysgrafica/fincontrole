@@ -1,0 +1,556 @@
+
+/* Estilos específicos para páginas individuais */
+
+/* === PÁGINA DE CARTÕES === */
+.cartoes-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 600px;
+}
+
+.cartoes-sidebar {
+    border-right: 1px solid var(--border-color);
+    padding: 1.25rem;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.cartoes-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.cartoes-sidebar-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.cartoes-sidebar-header .btn {
+    width: auto;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.cartoes-conteudo {
+    padding: 1.5rem;
+    overflow: visible;
+    height: auto;
+}
+
+#cartao-detalhe-vazio {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 400px;
+    color: var(--subtle-text-color);
+}
+
+#cartao-detalhe-vazio i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+#cartao-detalhe {
+    display: none;
+    overflow: visible;
+    height: auto;
+}
+
+.cartao-header {
+    margin-bottom: 2rem;
+}
+
+.cartao-visual {
+    background: linear-gradient(135deg, var(--primary-color), #3b82f6);
+    color: white;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    position: relative;
+}
+
+.cartao-visual::after {
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    right: -20px;
+    width: 140px;
+    height: 140px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+}
+
+.cartao-info-principal {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.cartao-identificacao h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.cartao-identificacao p {
+    margin: 0.5rem 0 0 0;
+    opacity: 0.8;
+}
+
+#cartao-detalhe-bandeira {
+    font-size: 1.75rem;
+}
+
+.cartao-info-financeira {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.cartao-limite, .cartao-valor-fatura {
+    flex: 1;
+}
+
+.cartao-limite small, .cartao-valor-fatura small {
+    opacity: 0.8;
+    font-size: 0.85rem;
+}
+
+.cartao-limite h4, .cartao-valor-fatura h4 {
+    margin: 0.25rem 0 0 0;
+    font-size: 1.25rem;
+    word-break: break-word;
+    font-weight: 500;
+}
+
+.cartao-acoes-principais {
+    text-align: center;
+}
+
+.btn-light {
+    background-color: white;
+    color: var(--primary-color);
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.btn-light:hover {
+    background-color: #f9fafb;
+    transform: translateY(-2px);
+}
+
+.cartao-info-boxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-box {
+    background-color: var(--surface-color);
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.info-box small {
+    color: var(--subtle-text-color);
+    font-size: 0.8rem;
+}
+
+.info-box h4 {
+    margin: 0.25rem 0 0 0;
+    word-break: break-word;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.cartao-acoes-secundarias {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.cartao-acoes-secundarias .btn {
+    flex: 1;
+    max-width: 180px;
+    padding: 0.75rem 0.5rem;
+    font-weight: 500;
+}
+
+.cartao-fatura {
+    overflow: visible;
+    height: auto;
+    margin-top: 2rem;
+    margin-bottom: 3rem;
+}
+
+/* === PÁGINA DE GASTOS === */
+.gastos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.gastos-header-title h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.gastos-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: var(--border-radius);
+    background-color: var(--surface-color);
+    color: var(--subtle-text-color);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.btn-view-toggle {
+    font-size: 1rem;
+}
+
+#add-gasto-btn {
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+#gastos-view-container {
+    margin-top: 1rem;
+}
+
+#gastos-cards-view {
+    display: none;
+}
+
+/* Cabeçalho para valores totais de gastos e filtros */
+.filtro-container {
+    margin-bottom: 1.25rem;
+    padding: 1.25rem;
+    background-color: #f8fafc;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+#total-gastos-filtrados {
+    margin-bottom: 1.25rem;
+    padding: 1.25rem;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+/* Cards de gastos para visualização mobile */
+.gasto-card {
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+}
+
+.gasto-card:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transform: translateY(-2px);
+}
+
+.gasto-card.pendente {
+    border-left: 4px solid #ff9800;
+    background-color: #fff8e1;
+}
+
+/* === PÁGINA DE BANCOS === */
+.bancos-cards-view {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.banco-card {
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+}
+
+.banco-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.banco-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.banco-card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.banco-card-title i {
+    color: var(--primary-color);
+}
+
+.banco-card-saldo {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+/* === ESTILOS DE FILTROS === */
+.filtro-linha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.filtro-campo {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filtro-campo label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.filtro-campo input,
+.filtro-campo select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.filtro-botoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 1rem;
+}
+
+/* === PÁGINA DE CONFIGURAÇÕES === */
+.config-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.config-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.config-section h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.config-option {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.config-option label {
+    font-weight: 500;
+}
+
+.config-option small {
+    color: var(--subtle-text-color);
+    font-size: 0.875rem;
+}
+
+.config-option.checkbox-option {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.config-option.checkbox-option input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.config-option .color-picker {
+    width: 100px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.config-actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.danger-zone {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border: 1px dashed var(--danger-color);
+    border-radius: var(--border-radius);
+}
+
+.danger-zone h5 {
+    color: var(--danger-color);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+/* === RESPONSIVIDADE === */
+@media (max-width: 1024px) {
+    .cartoes-grid {
+        grid-template-columns: 240px 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .cartoes-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .cartoes-sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem;
+        height: auto;
+        max-height: none;
+    }
+    
+    .gastos-header {
+        padding: 1rem;
+    }
+    
+    .filtro-campo {
+        min-width: 100%;
+    }
+    
+    .filtro-container {
+        padding: 1rem;
+    }
+    
+    #total-gastos-filtrados {
+        padding: 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .btn-texto {
+        display: none;
+    }
+    
+    #add-gasto-btn {
+        padding: 0.5rem;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    #add-gasto-btn i {
+        margin: 0;
+    }
+    
+    /* Mostre cards em vez de tabela em mobile */
+    #gastos-table-view {
+        display: none;
+    }
+    
+    #gastos-cards-view {
+        display: block;
+    }
+    
+    .bancos-table-view {
+        display: none;
+    }
+    
+    .bancos-cards-view {
+        display: flex;
+    }
+}
+
+@media (max-width: 576px) {
+    .cartao-info-financeira {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .cartao-info-boxes {
+        grid-template-columns: 1fr;
+    }
+    
+    .fatura-navigation .btn {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .fatura-tabela-container {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+}
